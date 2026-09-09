@@ -4,6 +4,48 @@ import { describe, expect, it } from "vitest";
 import { JUNIT_RE } from "./artifacts";
 import { parseJunit } from "./junit";
 
+// ---------------------------------------------------------------------------
+// objectPrefix validation regex (mirrors src/app/api/analyze/route.ts)
+// ---------------------------------------------------------------------------
+
+const OBJECT_PREFIX_RE =
+  /^pr-logs\/pull\/openshift_console\/\d+\/[a-z0-9.-]+-[a-z0-9-]+\/\d+\/$/;
+
+describe("OBJECT_PREFIX_RE", () => {
+  const pass = [
+    "pr-logs/pull/openshift_console/17149/pull-ci-openshift-console-release-5.0-e2e-gcp-console/2097545731324776448/",
+    "pr-logs/pull/openshift_console/17149/pull-ci-openshift-console-release-4.12-e2e-gcp-console/2097545731324776448/",
+    "pr-logs/pull/openshift_console/17149/pull-ci-openshift-console-main-e2e-gcp-console/2097545731324776448/",
+    "pr-logs/pull/openshift_console/17149/pull-ci-openshift-console-release-5.0-frontend/2097545731324776448/",
+    "pr-logs/pull/openshift_console/1/pull-ci-openshift-console-release-4.23-backend/123456789012345/",
+  ];
+  const fail = [
+    // double-slash (missing PR number — the bug this fixed)
+    "pr-logs/pull/openshift_console///pull-ci-openshift-console-release-5.0-e2e-gcp-console/2097545731324776448/",
+    // path traversal
+    "pr-logs/pull/openshift_console///../evil/2097545731324776448/",
+    // absolute path injection
+    "/etc/passwd",
+    // missing trailing slash
+    "pr-logs/pull/openshift_console/17149/pull-ci-openshift-console-release-5.0-e2e-gcp-console/2097545731324776448",
+    // uppercase
+    "pr-logs/pull/openshift_console/17149/Pull-CI/2097545731324776448/",
+    // empty
+    "",
+  ];
+
+  for (const p of pass) {
+    it(`accepts valid prefix: …${p.slice(p.indexOf("/pull-ci"))}`, () => {
+      expect(OBJECT_PREFIX_RE.test(p)).toBe(true);
+    });
+  }
+  for (const p of fail) {
+    it(`rejects: ${JSON.stringify(p).slice(0, 60)}`, () => {
+      expect(OBJECT_PREFIX_RE.test(p)).toBe(false);
+    });
+  }
+});
+
 const FIX = path.join(__dirname, "__fixtures__");
 const load = (name: string) => readFileSync(path.join(FIX, name), "utf8");
 
