@@ -1,11 +1,11 @@
 "use client";
 
 import {
-  IconStatus,
-  Status,
-} from "@patternfly/react-component-groups/dist/esm/Status";
+  Severity,
+  SeverityType,
+} from "@patternfly/react-component-groups";
 import { Button } from "@patternfly/react-core";
-import { ExternalLinkAltIcon } from "@patternfly/react-icons";
+import { RhUiExternalLinkIcon } from "@patternfly/react-icons";
 import {
   InnerScrollContainer,
   type ISortBy,
@@ -32,12 +32,12 @@ interface Props {
 
 type SortCol = "name" | "rate" | "runs" | "failed" | "flaked";
 
-function rateToIconStatus(rate: number): IconStatus {
-  if (rate === 0) return IconStatus.success;
-  if (rate <= 0.1) return IconStatus.success;
-  if (rate <= 0.25) return IconStatus.warning;
-  if (rate <= 0.5) return IconStatus.warning;
-  return IconStatus.danger;
+function rateToSeverity(rate: number): SeverityType {
+  if (rate === 0) return SeverityType.none;
+  if (rate <= 0.1) return SeverityType.minor;
+  if (rate <= 0.25) return SeverityType.moderate;
+  if (rate <= 0.5) return SeverityType.important;
+  return SeverityType.critical;
 }
 
 function rateToLabel(rate: number): string {
@@ -182,10 +182,9 @@ export function HeatmapTable({
                     </span>
                   </Td>
                   <Td dataLabel="Status">
-                    <Status
-                      status={rateToIconStatus(rate)}
+                    <Severity
+                      severity={rateToSeverity(rate)}
                       label={rateToLabel(rate)}
-                      variant="plain"
                     />
                   </Td>
                   <Td dataLabel="Runs">{suite.appearedIn}</Td>
@@ -199,7 +198,7 @@ export function HeatmapTable({
                       rel="noreferrer"
                       variant="link"
                       isInline
-                      icon={<ExternalLinkAltIcon />}
+                      icon={<RhUiExternalLinkIcon />}
                       iconPosition="end"
                       onClick={(e) => e.stopPropagation()}
                     >

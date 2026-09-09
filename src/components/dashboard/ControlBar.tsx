@@ -16,7 +16,7 @@ import {
   ToolbarItem,
   Tooltip,
 } from "@patternfly/react-core";
-import { SyncAltIcon } from "@patternfly/react-icons";
+import { RhUiRefreshIcon } from "@patternfly/react-icons";
 import { useState } from "react";
 import type { BranchEntry, JobRef } from "@/lib/ci/types";
 
@@ -327,7 +327,7 @@ export function ControlBar({
             <Tooltip content="Re-fetch runs and re-analyze from prow (run cache is kept)" position="bottom">
               <Button
                 variant="secondary"
-                icon={<SyncAltIcon />}
+                icon={<RhUiRefreshIcon />}
                 isLoading={loading}
                 onClick={onRefresh}
                 isDisabled={loading}
