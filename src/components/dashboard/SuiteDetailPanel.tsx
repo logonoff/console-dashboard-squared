@@ -21,7 +21,7 @@ import {
   TabTitleText,
   Title,
 } from "@patternfly/react-core";
-import { ExternalLinkAltIcon } from "@patternfly/react-icons";
+import { RhUiExternalLinkIcon } from "@patternfly/react-icons";
 import { useState } from "react";
 import { dptoolsUrl } from "@/lib/ci/links";
 import type { Analysis, DevVersionResult, SuiteStat } from "@/lib/ci/types";
@@ -131,7 +131,7 @@ export function SuiteDetailPanel({
               target="_blank"
               rel="noreferrer"
               variant="primary"
-              icon={<ExternalLinkAltIcon />}
+              icon={<RhUiExternalLinkIcon />}
               iconPosition="end"
             >
               Search across jobs (dptools)
@@ -167,7 +167,7 @@ export function SuiteDetailPanel({
                             rel="noreferrer"
                             variant="link"
                             isInline
-                            icon={<ExternalLinkAltIcon />}
+                            icon={<RhUiExternalLinkIcon />}
                             iconPosition="end"
                           >
                             {bid}

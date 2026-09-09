@@ -7,7 +7,7 @@ import {
   FlexItem,
   Title,
 } from "@patternfly/react-core";
-import { ExternalLinkAltIcon } from "@patternfly/react-icons";
+import { RhUiExternalLinkIcon } from "@patternfly/react-icons";
 import { useMemo } from "react";
 import type { Analysis, DevVersionResult, SuiteStat } from "@/lib/ci/types";
 import { generateBugPrompt } from "@/lib/jira/prompt";
@@ -50,7 +50,7 @@ export function BugPromptPanel({ analysis, suite, devVersion }: Props) {
           target="_blank"
           rel="noreferrer"
           variant="secondary"
-          icon={<ExternalLinkAltIcon />}
+          icon={<RhUiExternalLinkIcon />}
           iconPosition="end"
           size="sm"
         >
