@@ -1,0 +1,41 @@
+name: Build and publish a Docker image to ghcr.io
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+
+jobs:
+  docker_publish:
+    runs-on: "ubuntu-latest"
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Compute image tag
+        id: tag
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "release" ]]; then
+            echo "value=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=main" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and publish a Docker image for ${{ github.repository }}
+        uses: macbre/push-to-ghcr@master
+        with:
+          image_name: ${{ github.repository }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          dockerfile: Containerfile
+          image_tag: ${{ steps.tag.outputs.value }}
+
+      - name: Tag latest
+        if: github.event_name == 'release'
+        run: |
+          IMAGE_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          VERSION=${GITHUB_REF#refs/tags/}
+          docker tag ghcr.io/${IMAGE_NAME}:${VERSION} ghcr.io/${IMAGE_NAME}:latest
+          docker push ghcr.io/${IMAGE_NAME}:latest
