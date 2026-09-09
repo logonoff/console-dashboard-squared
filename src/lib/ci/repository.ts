@@ -25,6 +25,11 @@ export const REPOSITORIES: Record<string, Repository> = {
     repo: "openshift/console",
     component: "managementConsole",
   },
+  "openshift/console-operator": {
+    name: "Console Operator",
+    repo: "openshift/console-operator",
+    component: "managementConsole",
+  },
   // Add more repos here, e.g.:
   // "openshift/installer": {
   //   name: "OpenShift Installer",
