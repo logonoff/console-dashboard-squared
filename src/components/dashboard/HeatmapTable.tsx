@@ -1,15 +1,11 @@
 "use client";
 
-import {
-  Severity,
-  SeverityType,
-} from "@patternfly/react-component-groups";
+import { Severity, SeverityType } from "@patternfly/react-component-groups";
 import { Button } from "@patternfly/react-core";
 import { RhUiExternalLinkIcon } from "@patternfly/react-icons";
 import {
   InnerScrollContainer,
   type ISortBy,
-  OuterScrollContainer,
   Table,
   Tbody,
   Td,
@@ -17,7 +13,7 @@ import {
   Thead,
   Tr,
 } from "@patternfly/react-table";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { dptoolsUrl } from "@/lib/ci/links";
 import type { Analysis, SuiteStat } from "@/lib/ci/types";
 
@@ -31,6 +27,33 @@ interface Props {
 }
 
 type SortCol = "name" | "rate" | "runs" | "failed" | "flaked" | "prs";
+
+// Tracks whether the InnerScrollContainer has been scrolled down, so the sticky
+// header can apply a box-shadow border (isStickyHeaderStuck) when it is.
+function useIsStuck(
+  shouldTrack: boolean,
+  scrollRef: React.RefObject<HTMLDivElement | null>,
+): boolean {
+  const [isStuck, setIsStuck] = useState(false);
+
+  useLayoutEffect(() => {
+    if (!shouldTrack) {
+      setIsStuck(false);
+      return;
+    }
+    const el = scrollRef.current;
+    if (!el) {
+      setIsStuck(false);
+      return;
+    }
+    const sync = () => setIsStuck(el.scrollTop > 0);
+    sync();
+    el.addEventListener("scroll", sync, { passive: true });
+    return () => el.removeEventListener("scroll", sync);
+  }, [shouldTrack, scrollRef]);
+
+  return isStuck;
+}
 
 function rateToSeverity(rate: number): SeverityType {
   if (rate === 0) return SeverityType.none;
@@ -57,13 +80,33 @@ export function HeatmapTable({
   showCiOperator,
   onSelectSuite,
 }: Props) {
+  // rootRef attaches to the component root div.
+  // We measure rootRef.current.parentElement — the wrapper div in DashboardClient
+  // (flex: 1, minHeight: 0) — so InnerScrollContainer gets an explicit pixel height
+  // instead of relying on CSS height propagation through the PF drawer layers.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [containerHeight, setContainerHeight] = useState(0);
+
+  useLayoutEffect(() => {
+    const parent = rootRef.current?.parentElement;
+    if (!parent) return;
+    const ro = new ResizeObserver(([entry]) =>
+      setContainerHeight(entry.contentRect.height),
+    );
+    ro.observe(parent);
+    setContainerHeight(parent.clientHeight);
+    return () => ro.disconnect();
+  }, []);
+
+  const isStuck = useIsStuck(true, scrollRef);
+
   const [sortBy, setSortBy] = useState<ISortBy>({
     index: 1,
     direction: "desc",
   });
 
   const getRate = (s: SuiteStat) => s[metric];
-
   const sortCol = indexToCol(sortBy.index ?? 1);
   const sortDir = sortBy.direction ?? "desc";
 
@@ -101,13 +144,24 @@ export function HeatmapTable({
         : "Unhealthy rate";
 
   return (
-    <OuterScrollContainer>
-      <InnerScrollContainer>
+    // height: 100% fills whatever container the parent gives us.
+    // InnerScrollContainer is the sole scroll surface; the sticky header
+    // uses isStickyHeaderBase/Stuck to show a shadow when scrolled down.
+    <div ref={rootRef} style={{ flex: 1, height: "100%" }}>
+      <InnerScrollContainer
+        ref={scrollRef}
+        style={{
+          position: "absolute",
+          width: "100%",
+          height: containerHeight || "100%",
+        }}
+      >
         <Table
           aria-label="Test suite failure table"
           variant="compact"
           borders={false}
-          isStickyHeader
+          isStickyHeaderBase
+          isStickyHeaderStuck={isStuck}
         >
           <Thead>
             <Tr>
@@ -204,11 +258,18 @@ export function HeatmapTable({
                             fontSize: 11,
                           }}
                         >
-                          {" "}/ {suite.totalPRs}
+                          {" "}
+                          / {suite.totalPRs}
                         </span>
                       </>
                     ) : (
-                      <span style={{ color: "var(--pf-t--global--text--color--subtle)" }}>—</span>
+                      <span
+                        style={{
+                          color: "var(--pf-t--global--text--color--subtle)",
+                        }}
+                      >
+                        —
+                      </span>
                     )}
                   </Td>
                   <Td dataLabel="Search">
@@ -232,7 +293,7 @@ export function HeatmapTable({
           </Tbody>
         </Table>
       </InnerScrollContainer>
-    </OuterScrollContainer>
+    </div>
   );
 }
 
