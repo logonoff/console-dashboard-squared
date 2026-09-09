@@ -14,12 +14,14 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCatalog, useJobs } from "@/hooks/useCatalog";
 import { useRunAnalysis } from "@/hooks/useRunAnalysis";
+import { downloadCsv, generateCsv } from "@/lib/ci/csv";
 import type {
   Build,
   DevVersionResult,
   JobRef,
   SuiteStat,
 } from "@/lib/ci/types";
+import { BulkTriageModal } from "./BulkTriageModal";
 import {
   AGGREGATE_BRANCH,
   ControlBar,
@@ -80,6 +82,9 @@ export function DashboardClient() {
   const [suiteFilter, setSuiteFilter] = useState("");
   const [showLowSample, setShowLowSample] = useState(false);
   const [showCiOperator, setShowCiOperator] = useState(false);
+
+  // Export / bulk prompt
+  const [bulkTriageOpen, setBulkTriageOpen] = useState(false);
 
   // Selected suite (drawer)
   const [selectedSuite, setSelectedSuite] = useState<SuiteStat | null>(null);
@@ -204,8 +209,24 @@ export function DashboardClient() {
           loading={pendingFetch || loading}
           onRefresh={() => doRun(false)}
           onForceRefresh={() => doRun(true)}
+          hasAnalysis={!!analysis}
+          onExportCsv={() => {
+            if (!analysis) return;
+            const filename = `ci-watcher-${analysis.job.suffix}-${analysis.windowDays}d-${new Date().toISOString().slice(0, 10)}.csv`;
+            downloadCsv(generateCsv(analysis), filename);
+          }}
+          onBulkPrompt={() => setBulkTriageOpen(true)}
         />
       </PageSection>
+
+      {analysis && (
+        <BulkTriageModal
+          isOpen={bulkTriageOpen}
+          onClose={() => setBulkTriageOpen(false)}
+          analysis={analysis}
+          devVersion={devVersion}
+        />
+      )}
 
       {/*
        * Content area — fills remaining viewport height (isFilled = flex: 1).

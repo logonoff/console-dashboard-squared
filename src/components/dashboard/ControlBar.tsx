@@ -46,6 +46,9 @@ interface Props {
   loading: boolean;
   onRefresh: () => void;
   onForceRefresh: () => void;
+  hasAnalysis: boolean;
+  onExportCsv: () => void;
+  onBulkPrompt: () => void;
 }
 
 function BranchSelect({
@@ -218,6 +221,9 @@ export function ControlBar({
   loading,
   onRefresh,
   onForceRefresh,
+  hasAnalysis,
+  onExportCsv,
+  onBulkPrompt,
 }: Props) {
   return (
     <Toolbar>
@@ -339,6 +345,34 @@ export function ControlBar({
         </ToolbarGroup>
 
         <ToolbarGroup align={{ default: "alignEnd" }}>
+          <ToolbarItem>
+            <Tooltip
+              content="Download all suite statistics as a CSV file"
+              position="bottom"
+            >
+              <Button
+                variant="secondary"
+                onClick={onExportCsv}
+                isDisabled={!hasAnalysis || loading}
+              >
+                Export CSV
+              </Button>
+            </Tooltip>
+          </ToolbarItem>
+          <ToolbarItem>
+            <Tooltip
+              content="Generate a prompt for an LLM to triage all suites — check JIRA for duplicates and file OCPBUGS"
+              position="bottom"
+            >
+              <Button
+                variant="secondary"
+                onClick={onBulkPrompt}
+                isDisabled={!hasAnalysis || loading}
+              >
+                Bulk triage prompt
+              </Button>
+            </Tooltip>
+          </ToolbarItem>
           <ToolbarItem>
             <Tooltip
               content="Re-fetch runs and re-analyze from prow (run cache is kept)"
