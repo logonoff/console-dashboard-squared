@@ -182,6 +182,17 @@ export interface SuiteStat {
   topCases: TopCase[];
   /** Newest-first build IDs where the suite was hard-failed */
   failingBuildIds: BuildId[];
+  /**
+   * Distinct PR numbers where the suite had ≥1 unhealthy run (failed or flaked).
+   * A high count relative to totalPRs indicates a flake; a low count (1-2)
+   * suggests the failure tracks a specific PR's change.
+   */
+  distinctPRs: number;
+  /**
+   * Distinct PR numbers where the suite ran at all (denominator for distinctPRs).
+   * Only counts builds with a non-null prNumber.
+   */
+  totalPRs: number;
   cells: Record<BuildId, CellState>;
 }
 

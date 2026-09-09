@@ -108,6 +108,8 @@ export function aggregate(
     let flakedIn = 0;
     const cells: Record<BuildId, CellState> = {};
     const failingBuildIds: BuildId[] = [];
+    const unhealthyPRs = new Set<number>(); // PRs with ≥1 unhealthy run
+    const totalPRSet = new Set<number>(); // PRs where suite ran at all
     // For topCases: map from case name → array of failure messages
     const caseFailures = new Map<
       string,
@@ -136,12 +138,14 @@ export function aggregate(
 
       if (!suite.ran) continue; // entirely skipped — excluded from denominator
       appearedIn++;
+      if (build.prNumber != null) totalPRSet.add(build.prNumber);
 
       const hasHardFail = suite.counts.failed > 0;
       const hasFlake = suite.counts.flaked > 0;
 
       if (hasHardFail) {
         failedIn++;
+        if (build.prNumber != null) unhealthyPRs.add(build.prNumber);
         if (failingBuildIds.length < SAMPLE_FAILING_RUNS) {
           failingBuildIds.push(build.id);
         }
@@ -159,6 +163,7 @@ export function aggregate(
         }
       } else if (hasFlake) {
         flakedIn++;
+        if (build.prNumber != null) unhealthyPRs.add(build.prNumber);
       }
     }
 
@@ -196,6 +201,8 @@ export function aggregate(
       impact,
       topCases,
       failingBuildIds,
+      distinctPRs: unhealthyPRs.size,
+      totalPRs: totalPRSet.size,
       cells,
     });
   }
