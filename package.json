@@ -10,6 +10,12 @@
     "format": "biome format --write"
   },
   "dependencies": {
+    "@patternfly/patternfly": "6.6.1",
+    "@patternfly/react-core": "6.6.1",
+    "@patternfly/react-styles": "6.6.1",
+    "@patternfly/react-component-groups": "6.7.0",
+    "@patternfly/react-charts": "8.6.1",
+    "@patternfly/react-icons": "6.6.1",
     "next": "16.3.4",
     "react": "19.2.8",
     "react-dom": "19.2.8"
