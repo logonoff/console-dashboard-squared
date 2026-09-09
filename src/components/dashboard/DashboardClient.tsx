@@ -155,10 +155,17 @@ export function DashboardClient() {
         padding={{ default: "noPadding" }}
         style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}
       >
+        {/* pf-v6-c-drawer is display:block by default; flex+column makes __main's flex:1 work */}
         <Drawer
           isExpanded={!!selectedSuite}
           position="end"
-          style={{ flex: 1, overflow: "hidden" }}
+          style={{
+            flex: 1,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          }}
         >
           <DrawerContent
             panelContent={
@@ -179,7 +186,20 @@ export function DashboardClient() {
              * The drawer panel sits alongside it at the same height,
              * independently scrollable, and never moves with this content.
              */}
-            <DrawerContentBody style={{ overflowY: "auto", height: "100%" }}>
+            {/*
+             * Flex column so SummaryStrip keeps its natural height while
+             * the view wrapper (flex: 1) fills the rest. The table uses
+             * PF's InnerScrollContainer pattern with height: 100% on its
+             * own wrapper, so only the table rows scroll — not this body.
+             */}
+            <DrawerContentBody
+              style={{
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+              }}
+            >
               {loading && (
                 <LoadProgress
                   done={progress.done}
@@ -217,38 +237,41 @@ export function DashboardClient() {
                 <>
                   <SummaryStrip analysis={analysis} />
 
-                  {view === "matrix" && (
-                    <HeatmapMatrix
-                      analysis={analysis}
-                      metric={metric}
-                      suiteFilter={suiteFilter}
-                      showLowSample={showLowSample}
-                      showCiOperator={showCiOperator}
-                      onSelectSuite={toggleSuite}
-                    />
-                  )}
-                  {view === "grid" && (
-                    <HeatmapGrid
-                      analysis={analysis}
-                      metric={metric}
-                      suiteFilter={suiteFilter}
-                      showLowSample={showLowSample}
-                      showCiOperator={showCiOperator}
-                      onSelectSuite={toggleSuite}
-                    />
-                  )}
-                  {view === "table" && (
-                    <HeatmapTable
-                      analysis={analysis}
-                      metric={metric}
-                      suiteFilter={suiteFilter}
-                      showLowSample={showLowSample}
-                      showCiOperator={showCiOperator}
-                      onSelectSuite={toggleSuite}
-                    />
-                  )}
+                  {/* flex: 1 + min-height: 0 fills remaining space after SummaryStrip */}
+                  <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+                    {view === "matrix" && (
+                      <HeatmapMatrix
+                        analysis={analysis}
+                        metric={metric}
+                        suiteFilter={suiteFilter}
+                        showLowSample={showLowSample}
+                        showCiOperator={showCiOperator}
+                        onSelectSuite={toggleSuite}
+                      />
+                    )}
+                    {view === "grid" && (
+                      <HeatmapGrid
+                        analysis={analysis}
+                        metric={metric}
+                        suiteFilter={suiteFilter}
+                        showLowSample={showLowSample}
+                        showCiOperator={showCiOperator}
+                        onSelectSuite={toggleSuite}
+                      />
+                    )}
+                    {view === "table" && (
+                      <HeatmapTable
+                        analysis={analysis}
+                        metric={metric}
+                        suiteFilter={suiteFilter}
+                        showLowSample={showLowSample}
+                        showCiOperator={showCiOperator}
+                        onSelectSuite={toggleSuite}
+                      />
+                    )}
 
-                  {view !== "table" && <HeatmapLegend />}
+                    {view !== "table" && <HeatmapLegend />}
+                  </div>
                 </>
               )}
             </DrawerContentBody>
