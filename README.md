@@ -1,5 +1,8 @@
 # CI Watcher — OpenShift prow junit failure heatmap
 
+> [!WARNING]
+> This is AI slop and I have not thoroughly vetted the code. Use at your own risk!
+
 Read-only dashboard for analyzing flaky and failing junit test suites across OpenShift CI prow runs for an OpenShift repository.
 
 ## What it does

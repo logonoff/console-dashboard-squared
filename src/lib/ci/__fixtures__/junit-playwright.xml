@@ -486,8 +486,8 @@ Error: element(s) not found
 Call log:
   - Expect "toBeVisible" with timeout 5000ms
   - waiting for getByTestId('data-view-cell-testjmnuw-crud-persistent-volume-name')
-    - waiting for" https://oauth-openshift.apps.ci-op-75diwn0s-d6b67.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/oauth/authorize?client_id=console&redirect_uri=https%3A%2F%2Fconsole-openshift-console.apps.ci-op-75diwn0s-d6b67.or…" navigation to finish...
-    - navigated to "https://console-openshift-console.apps.ci-op-75diwn0s-d6b67.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/auth/callback?code=sha256~G6rxD1b2HMYLYmgrcbTDJahBbX8Wz2Ea-lrvBKMnxd4&state=aa1347e515d38aee1b6e01ccb3d80…"
+    - waiting for" https://www.youtube.com/watch?v=dQw4w9WgXcQ…" navigation to finish...
+    - navigated to "https://www.youtube.com/watch?v=dQw4w9WgXcQ…"
 
     at assertRowVisible (/go/src/github.com/openshift/console/frontend/e2e/tests/console/crud/resource-crud.spec.ts:345:40)
     at /go/src/github.com/openshift/console/frontend/e2e/tests/console/crud/resource-crud.spec.ts:446:15
