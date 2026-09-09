@@ -1,15 +1,10 @@
-"use client";
+import type { Metadata } from "next";
+import { DashboardClient } from "@/components/dashboard/DashboardClient";
 
-import { PageHeader } from "@patternfly/react-component-groups";
-import { Content, PageSection } from "@patternfly/react-core";
+export const metadata: Metadata = {
+  title: "Dashboard² — CI Watcher",
+};
 
 export default function Home() {
-  return (
-    <>
-      <PageHeader title="Dashboard^2" subtitle="Analyze prow jobs" />
-      <PageSection>
-        <Content>hi</Content>
-      </PageSection>
-    </>
-  );
+  return <DashboardClient />;
 }

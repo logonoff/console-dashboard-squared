@@ -1,0 +1,17 @@
+<testsuites>
+  <testsuite name="step graph" tests="4" skipped="0" failures="0" time="1097.376993575">
+    <properties></properties>
+    <testcase name="Clone the correct source code into an image and tag it as src" time="0.615368648">
+      <properties></properties>
+    </testcase>
+    <testcase name="Find the input image root and tag it into the pipeline" time="0.064644572">
+      <properties></properties>
+    </testcase>
+    <testcase name="Run test analyze - container test" time="119">
+      <properties></properties>
+    </testcase>
+    <testcase name="Store build results into a layer on top of src and save as test-bin" time="844.724849407">
+      <properties></properties>
+    </testcase>
+  </testsuite>
+</testsuites>

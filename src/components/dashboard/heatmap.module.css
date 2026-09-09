@@ -1,0 +1,201 @@
+/* Heatmap grid layout */
+.matrix {
+  /* These two vars must agree: sticky left offsets are derived from them. */
+  --col-label-width: 240px;
+  --grid-gap: 2px;
+
+  display: grid;
+  /* col 1: suite label (sticky), col 2: rate (sticky), then one 14px col per run */
+  grid-template-columns:
+    var(--col-label-width)
+    5.5rem
+    repeat(var(--run-count, 0), 14px);
+  gap: var(--grid-gap);
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 240px);
+  font-size: 12px;
+}
+
+.matrixHeader {
+  display: contents;
+}
+
+.matrixRow {
+  display: contents;
+}
+
+/* Sticky columns — floating token so they visually lift above scrolling rows */
+.rowLabel {
+  position: sticky;
+  left: 0;
+  z-index: var(--pf-t--global--z-index--sm); /* 200 */
+  background: var(--pf-t--global--background--color--floating--default);
+  padding: 2px 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  align-self: center;
+}
+
+.rowLabel:hover {
+  text-decoration: underline;
+}
+
+.rateCell {
+  position: sticky;
+  /* Must equal var(--col-label-width) + var(--grid-gap) */
+  left: calc(var(--col-label-width) + var(--grid-gap));
+  z-index: var(--pf-t--global--z-index--sm); /* 200 */
+  background: var(--pf-t--global--background--color--floating--default);
+  padding: 2px 4px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: right;
+  align-self: center;
+}
+
+/* Header row — sticky top and floats above all scrolling content */
+.headerLabel {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: var(--pf-t--global--z-index--md); /* 300, above sticky columns */
+  background: var(--pf-t--global--background--color--floating--default);
+  padding: 2px 4px;
+  font-weight: 600;
+  align-self: end;
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.headerRate {
+  position: sticky;
+  top: 0;
+  /* Must equal var(--col-label-width) + var(--grid-gap) */
+  left: calc(var(--col-label-width) + var(--grid-gap));
+  z-index: var(--pf-t--global--z-index--md); /* 300 */
+  background: var(--pf-t--global--background--color--floating--default);
+  padding: 2px 4px;
+  font-weight: 600;
+  align-self: end;
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.headerDate {
+  position: sticky;
+  top: 0;
+  z-index: var(--pf-t--global--z-index--xs); /* 100 */
+  background: var(--pf-t--global--background--color--floating--default);
+  writing-mode: vertical-lr;
+  transform: rotate(180deg);
+  font-size: 10px;
+  height: 60px;
+  padding: 2px 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  align-self: end;
+  justify-self: center;
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
+/* Cell colors — 5 discrete buckets using PF semantic tokens */
+.cellFail {
+  background: var(--pf-t--global--color--status--danger--default);
+}
+
+.cellFlake {
+  background: var(--pf-t--global--color--status--warning--default);
+}
+
+.cellPass {
+  background: var(--pf-t--global--color--status--success--default);
+  opacity: 0.7;
+}
+
+.cellSkip {
+  background: var(--pf-t--global--background--color--secondary--default);
+  /* Diagonal hatch for colorblind accessibility */
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 0, 0, 0.12) 3px,
+    rgba(0, 0, 0, 0.12) 4px
+  );
+}
+
+.cellAbsent {
+  background: var(--pf-t--global--background--color--secondary--default);
+  opacity: 0.4;
+}
+
+.cellNodata {
+  background: var(--pf-t--global--background--color--secondary--default);
+  opacity: 0.2;
+}
+
+.cell {
+  cursor: pointer;
+  border-radius: 2px;
+  width: 12px;
+  height: 14px;
+  align-self: center;
+  justify-self: center;
+}
+
+/* Rate tint overlay on the rate cell (not color-only) */
+.rateTintHigh {
+  border-left: 3px solid var(--pf-t--global--color--status--danger--default);
+}
+.rateTintMed {
+  border-left: 3px solid var(--pf-t--global--color--status--warning--default);
+}
+.rateTintLow {
+  border-left: 3px solid var(--pf-t--global--color--status--success--default);
+}
+
+/* Grid view (compact one-square-per-suite) */
+.compactGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 8px;
+}
+
+.gridCell {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+
+.gridCell0 {
+  background: var(--pf-t--global--color--status--success--default);
+  opacity: 0.7;
+}
+.gridCell10 {
+  background: var(--pf-t--global--color--status--success--default);
+}
+.gridCell25 {
+  background: var(--pf-t--global--color--status--warning--default);
+  opacity: 0.7;
+}
+.gridCell50 {
+  background: var(--pf-t--global--color--status--warning--default);
+}
+.gridCell100 {
+  background: var(--pf-t--global--color--status--danger--default);
+}
+
+/* Hover info bar above the compact grid */
+.hoverInfo {
+  min-height: 1.4em;
+  padding: 4px 8px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+  background: var(--pf-t--global--background--color--floating--default);
+}

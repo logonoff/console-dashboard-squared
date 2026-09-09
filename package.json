@@ -11,11 +11,12 @@
   },
   "dependencies": {
     "@patternfly/patternfly": "6.6.1",
-    "@patternfly/react-core": "6.6.1",
-    "@patternfly/react-styles": "6.6.1",
     "@patternfly/react-component-groups": "6.7.0",
-    "@patternfly/react-charts": "8.6.1",
+    "@patternfly/react-core": "6.6.1",
     "@patternfly/react-icons": "6.6.1",
+    "@patternfly/react-styles": "6.6.1",
+    "@patternfly/react-table": "6.6.1",
+    "fast-xml-parser": "^5.11.1",
     "next": "16.3.4",
     "react": "19.2.8",
     "react-dom": "19.2.8"
@@ -25,8 +26,10 @@
     "@types/node": "^26.5.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
+    "@vitest/coverage-v8": "^5.0.0",
     "babel-plugin-react-compiler": "1.0.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
   },
   "packageManager": "pnpm@11.8.0"
 }
