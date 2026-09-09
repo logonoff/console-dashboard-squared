@@ -48,6 +48,9 @@ export function DashboardClient() {
 
   // Selected suite (drawer)
   const [selectedSuite, setSelectedSuite] = useState<SuiteStat | null>(null);
+  // Clicking the same suite again closes the drawer.
+  const toggleSuite = (suite: SuiteStat) =>
+    setSelectedSuite((prev) => (prev?.name === suite.name ? null : suite));
 
   // Dev version
   const [devVersion, setDevVersion] =
@@ -221,7 +224,7 @@ export function DashboardClient() {
                       suiteFilter={suiteFilter}
                       showLowSample={showLowSample}
                       showCiOperator={showCiOperator}
-                      onSelectSuite={setSelectedSuite}
+                      onSelectSuite={toggleSuite}
                     />
                   )}
                   {view === "grid" && (
@@ -231,7 +234,7 @@ export function DashboardClient() {
                       suiteFilter={suiteFilter}
                       showLowSample={showLowSample}
                       showCiOperator={showCiOperator}
-                      onSelectSuite={setSelectedSuite}
+                      onSelectSuite={toggleSuite}
                     />
                   )}
                   {view === "table" && (
@@ -241,7 +244,7 @@ export function DashboardClient() {
                       suiteFilter={suiteFilter}
                       showLowSample={showLowSample}
                       showCiOperator={showCiOperator}
-                      onSelectSuite={setSelectedSuite}
+                      onSelectSuite={toggleSuite}
                     />
                   )}
 
