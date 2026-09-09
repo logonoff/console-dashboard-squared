@@ -4,7 +4,7 @@
  * No network calls, no LLM — pure string interpolation.
  */
 
-import { AGGREGATE_BRANCH } from "@/components/dashboard/ControlBar";
+import { AGGREGATE_BRANCH } from "@/lib/ci/constants";
 import { branchToJiraVersion } from "@/lib/ci/devVersion";
 import { dptoolsUrl } from "@/lib/ci/links";
 import type { Analysis, DevVersionResult } from "@/lib/ci/types";
