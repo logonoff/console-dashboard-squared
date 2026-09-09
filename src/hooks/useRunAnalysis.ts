@@ -74,7 +74,23 @@ export function useRunAnalysis(): UseRunAnalysisResult {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 job: job.name,
-                buildIds: batch.map((b) => b.id),
+                // Send the full build objects so the server doesn't need the
+                // cache to resolve objectPrefix — Vercel instances are ephemeral
+                // and the /api/runs cache may not be shared with /api/analyze.
+                builds: batch.map((b) => ({
+                  id: b.id,
+                  result: b.result,
+                  objectPrefix: b.objectPrefix,
+                  startedIso: b.startedIso,
+                  startedMs: b.startedMs,
+                  durationMs: b.durationMs,
+                  prNumber: b.prNumber,
+                  prTitle: b.prTitle,
+                  prAuthor: b.prAuthor,
+                  baseRef: b.baseRef,
+                  spyglassUrl: b.spyglassUrl,
+                  jobName: job.name,
+                })),
                 force,
               }),
             });
