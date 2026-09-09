@@ -1,0 +1,99 @@
+"use client";
+
+import {
+  Button,
+  ClipboardCopy,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+} from "@patternfly/react-core";
+import { useMemo } from "react";
+import type { Analysis, DevVersionResult } from "@/lib/ci/types";
+import { generateBulkTriagePrompt } from "@/lib/jira/bulkPrompt";
+
+interface Props {
+  isOpen: boolean;
+  onClose: () => void;
+  analysis: Analysis;
+  devVersion: DevVersionResult;
+}
+
+export function BulkTriageModal({
+  isOpen,
+  onClose,
+  analysis,
+  devVersion,
+}: Props) {
+  const prompt = useMemo(
+    () => generateBulkTriagePrompt(analysis, devVersion),
+    [analysis, devVersion],
+  );
+
+  const actionableCount = analysis.suites.filter(
+    (s) => s.unhealthyRate >= 0.1,
+  ).length;
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      variant="large"
+      aria-label="Bulk OCPBUGS triage prompt"
+    >
+      <ModalHeader title="Bulk OCPBUGS triage prompt" />
+      <ModalBody>
+        <p style={{ marginBottom: "0.75rem", fontSize: 14 }}>
+          This prompt covers all <strong>{actionableCount}</strong> suite
+          {actionableCount !== 1 ? "s" : ""} with an unhealthy rate ≥ 10%. Copy
+          it and paste it into an LLM (Claude, ChatGPT, etc.). The LLM will:
+        </p>
+        <ol
+          style={{
+            marginBottom: "1rem",
+            paddingLeft: "1.5rem",
+            fontSize: 14,
+            lineHeight: 1.8,
+          }}
+        >
+          <li>
+            Run a broad JIRA dedup check once to load all existing ci-watcher
+            bugs into its context.
+          </li>
+          <li>
+            For each suite in order: search JIRA for an existing OCPBUGS —
+            comment on it if found, create a new bug if not.
+          </li>
+          <li>
+            Never file duplicates. Never assert root causes. Never create bugs
+            for suites below the 10% threshold.
+          </li>
+        </ol>
+        <p
+          style={{
+            marginBottom: "1rem",
+            fontSize: 13,
+            color: "var(--pf-t--global--text--color--subtle)",
+          }}
+        >
+          The dashboard itself does not create any JIRA issues.
+        </p>
+        <ClipboardCopy
+          variant="expansion"
+          isCode
+          isReadOnly
+          hoverTip="Copy prompt"
+          clickTip="Copied!"
+          style={{ maxHeight: 480, overflowY: "auto" }}
+        >
+          {prompt}
+        </ClipboardCopy>
+      </ModalBody>
+      <ModalFooter>
+        <Button variant="secondary" onClick={onClose}>
+          Close
+        </Button>
+      </ModalFooter>
+    </Modal>
+  );
+}
