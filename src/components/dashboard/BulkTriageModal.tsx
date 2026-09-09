@@ -10,6 +10,7 @@ import {
 } from "@patternfly/react-core";
 import { useMemo } from "react";
 import { AGGREGATE_BRANCH } from "@/lib/ci/constants";
+import type { Repository } from "@/lib/ci/repository";
 import type { Analysis, DevVersionResult } from "@/lib/ci/types";
 import { generateBulkTriagePrompt } from "@/lib/jira/bulkPrompt";
 
@@ -18,6 +19,7 @@ interface Props {
   onClose: () => void;
   analysis: Analysis;
   devVersion: DevVersionResult;
+  repo: Repository;
 }
 
 export function BulkTriageModal({
@@ -25,10 +27,11 @@ export function BulkTriageModal({
   onClose,
   analysis,
   devVersion,
+  repo,
 }: Props) {
   const prompt = useMemo(
-    () => generateBulkTriagePrompt(analysis, devVersion),
-    [analysis, devVersion],
+    () => generateBulkTriagePrompt(analysis, devVersion, repo),
+    [analysis, devVersion, repo],
   );
 
   const actionableCount = analysis.suites.filter(

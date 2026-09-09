@@ -11,6 +11,8 @@
  *   - failedIn and flakedIn are mutually exclusive; unhealthyRate <= 1.
  */
 
+import type { Repository } from "./repository";
+import { branchFromJobName as repoBranchFromJobName } from "./repository";
 import type {
   Analysis,
   Build,
@@ -26,13 +28,6 @@ import type {
 const TOP_CASES = 5;
 const TOP_MESSAGES_PER_CASE = 3;
 const SAMPLE_FAILING_RUNS = 5;
-
-function branchFromJobName(jobName: string): string | null {
-  const m = /^pull-ci-openshift-console-((?:main|release-\d+\.\d+))-/.exec(
-    jobName,
-  );
-  return m?.[1] ?? null;
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -76,6 +71,7 @@ export function aggregate(
   builds: Build[],
   runs: RunResult[],
   windowDays: number,
+  repo: Repository,
 ): Analysis {
   const now = new Date();
   const cutoffMs = now.getTime() - windowDays * 24 * 60 * 60 * 1000;
@@ -147,7 +143,7 @@ export function aggregate(
       if (!suite.ran) continue; // entirely skipped — excluded from denominator
       appearedIn++;
       if (build.prNumber != null) totalPRSet.add(build.prNumber);
-      const branch = branchFromJobName(build.jobName);
+      const branch = repoBranchFromJobName(repo, build.jobName);
       if (branch) branchSet.add(branch);
 
       const hasHardFail = suite.counts.failed > 0;

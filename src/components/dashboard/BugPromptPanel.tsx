@@ -9,6 +9,7 @@ import {
 } from "@patternfly/react-core";
 import { RhUiExternalLinkIcon } from "@patternfly/react-icons";
 import { useMemo } from "react";
+import type { Repository } from "@/lib/ci/repository";
 import type { Analysis, DevVersionResult, SuiteStat } from "@/lib/ci/types";
 import { generateBugPrompt } from "@/lib/jira/prompt";
 
@@ -16,12 +17,13 @@ interface Props {
   analysis: Analysis;
   suite: SuiteStat;
   devVersion: DevVersionResult;
+  repo: Repository;
 }
 
-export function BugPromptPanel({ analysis, suite, devVersion }: Props) {
+export function BugPromptPanel({ analysis, suite, devVersion, repo }: Props) {
   const { markdown, jqlUrl } = useMemo(
-    () => generateBugPrompt({ analysis, suite, devVersion }),
-    [analysis, suite, devVersion],
+    () => generateBugPrompt({ analysis, suite, devVersion, repo }),
+    [analysis, suite, devVersion, repo],
   );
 
   return (

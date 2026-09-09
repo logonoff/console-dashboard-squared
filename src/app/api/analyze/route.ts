@@ -3,6 +3,7 @@ import { keys, TTL } from "@/lib/cache/keys";
 import { analyzeBuild } from "@/lib/ci/analyze";
 import { fetchCatalog } from "@/lib/ci/catalog";
 import { pool } from "@/lib/ci/concurrency";
+import { getRepository, jobNameRE, objectPrefixRE } from "@/lib/ci/repository";
 import type { Build, BuildId, RunResult } from "@/lib/ci/types";
 
 export const maxDuration = 60;
@@ -10,11 +11,10 @@ export const maxDuration = 60;
 const BATCH_CAP = Number(process.env.CI_ANALYZE_BATCH ?? "8");
 const CONCURRENCY = Number(process.env.CI_MAX_CONCURRENCY ?? "6");
 const BUILD_ID_RE = /^\d{15,25}$/;
-const JOB_NAME_RE = /^pull-ci-openshift-console-[a-z0-9.-]+-[a-z0-9-]+$/;
-// GCS path must start with pr-logs/pull/ and contain no path traversal.
-// Job names contain dots for version numbers (e.g. release-5.0), hence [a-z0-9.-]+
-const OBJECT_PREFIX_RE =
-  /^pr-logs\/pull\/openshift_console\/\d+\/[a-z0-9.-]+-[a-z0-9-]+\/\d+\/$/;
+
+const _repo = getRepository();
+const JOB_NAME_RE = jobNameRE(_repo);
+const OBJECT_PREFIX_RE = objectPrefixRE(_repo);
 
 /** Validate job name is in the catalog (SSRF guard). */
 async function validateJob(jobName: string): Promise<boolean> {

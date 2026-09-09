@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCatalog, useJobs } from "@/hooks/useCatalog";
 import { useRunAnalysis } from "@/hooks/useRunAnalysis";
 import { downloadCsv, generateCsv } from "@/lib/ci/csv";
+import { aggregateJobPattern, type Repository } from "@/lib/ci/repository";
 import type {
   Build,
   DevVersionResult,
@@ -43,7 +44,7 @@ const EMPTY_DEV_VERSION: DevVersionResult = {
   resolvedVia: "unavailable",
 };
 
-export function DashboardClient() {
+export function DashboardClient({ repo }: { repo: Repository }) {
   // Catalog
   const { branches, loading: catalogLoading } = useCatalog();
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
@@ -138,7 +139,7 @@ export function DashboardClient() {
             branch: AGGREGATE_BRANCH,
             suffix: selectedJob.suffix,
             // Regex accepted by dptools `name=` param — matches all branches.
-            name: `pull-ci-openshift-console-.*-${selectedJob.suffix}`,
+            name: aggregateJobPattern(repo, selectedJob.suffix),
             lastRunIso: null,
           };
         } else {
@@ -150,13 +151,13 @@ export function DashboardClient() {
         }
 
         setPendingFetch(false);
-        run(effectiveJob, combinedBuilds, windowDays, force);
+        run(effectiveJob, combinedBuilds, windowDays, repo, force);
       } catch (err) {
         setPendingFetch(false);
         console.error("Failed to fetch runs:", err);
       }
     },
-    [selectedJob, selectedBranch, branches, windowDays, run],
+    [selectedJob, selectedBranch, branches, windowDays, repo, run],
   );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: windowDays is captured by doRun
@@ -225,6 +226,7 @@ export function DashboardClient() {
           onClose={() => setBulkTriageOpen(false)}
           analysis={analysis}
           devVersion={devVersion}
+          repo={repo}
         />
       )}
 
@@ -252,6 +254,7 @@ export function DashboardClient() {
                   suite={selectedSuite}
                   analysis={analysis}
                   devVersion={devVersion}
+                  repo={repo}
                   onClose={() => setSelectedSuite(null)}
                 />
               )

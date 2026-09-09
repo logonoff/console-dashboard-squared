@@ -1,6 +1,6 @@
 /**
  * Resolve the current in-development OpenShift version by finding the
- * lowest-numbered release branch that tracks `main` in openshift/console.
+ * lowest-numbered release branch that tracks `main`.
  *
  * Per the team's convention: the dev version is the lowest release-X.Y branch
  * whose HEAD SHA equals main's HEAD SHA. If none match exactly (e.g. shortly
@@ -12,10 +12,10 @@
  * z-stream (below dev version → X.Y.z) or a trunk (>= dev version → X.Y.0).
  */
 
+import { getRepository } from "./repository";
 import type { DevVersionResult } from "./types";
 
 const GITHUB_API = "https://api.github.com";
-const REPO = "openshift/console";
 const TIMEOUT_MS = 15_000;
 
 function getGitHubHeaders(): Record<string, string> {
@@ -55,7 +55,7 @@ async function fetchBranches(): Promise<Array<{ name: string; sha: string }>> {
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const res = await fetch(
-      `${GITHUB_API}/repos/${REPO}/branches?per_page=100&page=${page}`,
+      `${GITHUB_API}/repos/${getRepository().repo}/branches?per_page=100&page=${page}`,
       { signal: AbortSignal.timeout(TIMEOUT_MS), headers: getGitHubHeaders() },
     );
     if (!res.ok) throw new Error(`GitHub branches: HTTP ${res.status}`);
@@ -71,7 +71,7 @@ async function fetchBranches(): Promise<Array<{ name: string; sha: string }>> {
 async function isAncestor(base: string, head: string): Promise<boolean> {
   // ahead_by === 0 means `head` has no commits that `base` doesn't → head tracks base
   const res = await fetch(
-    `${GITHUB_API}/repos/${REPO}/compare/${base}...${head}`,
+    `${GITHUB_API}/repos/${getRepository().repo}/compare/${base}...${head}`,
     { signal: AbortSignal.timeout(TIMEOUT_MS), headers: getGitHubHeaders() },
   );
   if (!res.ok) throw new Error(`GitHub compare: HTTP ${res.status}`);

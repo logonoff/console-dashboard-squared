@@ -32,13 +32,17 @@ import { pool } from "@/lib/ci/concurrency";
 import { AGGREGATE_BRANCH } from "@/lib/ci/constants";
 import { resolveDevVersion } from "@/lib/ci/devVersion";
 import { fetchBuildsInWindow } from "@/lib/ci/prow";
+import {
+  aggregateJobPattern,
+  getRepository,
+  jobNameRE,
+} from "@/lib/ci/repository";
 import type { Build, JobRef, RunResult } from "@/lib/ci/types";
 import { generateBulkTriagePrompt } from "@/lib/jira/bulkPrompt";
 
 export const maxDuration = 60;
 
 const CONCURRENCY = Number(process.env.CI_MAX_CONCURRENCY ?? "6");
-const JOB_NAME_RE = /^pull-ci-openshift-console-[a-z0-9.-]+-[a-z0-9-]+$/;
 const SUFFIX_RE = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
 
 export async function GET(req: Request) {
@@ -64,6 +68,7 @@ export async function GET(req: Request) {
     );
   }
 
+  const repo = getRepository();
   const cache = getCache();
   const branches = await cache.getOrLoad(keys.catalog(), TTL.CATALOG, () =>
     fetchCatalog(),
@@ -88,11 +93,11 @@ export async function GET(req: Request) {
     effectiveJob = {
       branch: AGGREGATE_BRANCH,
       suffix: suffixParam,
-      name: `pull-ci-openshift-console-.*-${suffixParam}`,
+      name: aggregateJobPattern(repo, suffixParam),
       lastRunIso: null,
     };
   } else {
-    if (!JOB_NAME_RE.test(jobParam!)) {
+    if (!jobNameRE(repo).test(jobParam!)) {
       return Response.json({ error: "Invalid job name" }, { status: 400 });
     }
     const found = branches
@@ -131,7 +136,7 @@ export async function GET(req: Request) {
   });
   const runs = await pool(tasks, CONCURRENCY);
 
-  const analysis = aggregate(effectiveJob, allBuilds, runs, days);
+  const analysis = aggregate(effectiveJob, allBuilds, runs, days, repo);
 
   const devVersion = await cache.getOrLoad(
     keys.devVersion(),
@@ -139,7 +144,7 @@ export async function GET(req: Request) {
     () => resolveDevVersion(),
   );
 
-  const prompt = generateBulkTriagePrompt(analysis, devVersion);
+  const prompt = generateBulkTriagePrompt(analysis, devVersion, repo);
   const slug = suffixParam ?? effectiveJob.suffix;
   const filename = `bulk-triage-${slug}-${days}d.md`;
 

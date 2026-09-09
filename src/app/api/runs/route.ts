@@ -2,6 +2,7 @@ import { getCache } from "@/lib/cache";
 import { hourBucket, keys, TTL } from "@/lib/cache/keys";
 import { fetchCatalog } from "@/lib/ci/catalog";
 import { fetchBuildsInWindow } from "@/lib/ci/prow";
+import { getRepository, jobNameRE } from "@/lib/ci/repository";
 
 export const maxDuration = 30;
 
@@ -23,8 +24,7 @@ export async function GET(req: Request) {
   );
   const force = url.searchParams.get("force") === "1";
 
-  // Basic structural validation before the catalog check
-  if (!/^pull-ci-openshift-console-[a-z0-9.-]+-[a-z0-9-]+$/.test(jobName)) {
+  if (!jobNameRE(getRepository()).test(jobName)) {
     return Response.json({ error: "Invalid job name" }, { status: 400 });
   }
 

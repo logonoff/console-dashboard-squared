@@ -6,6 +6,7 @@
 import path from "node:path";
 import { branchToJiraVersion } from "@/lib/ci/devVersion";
 import { jiraSearchUrl } from "@/lib/ci/links";
+import type { Repository } from "@/lib/ci/repository";
 import type { Analysis, DevVersionResult, SuiteStat } from "@/lib/ci/types";
 import { JIRA } from "./constants";
 
@@ -13,6 +14,7 @@ export interface PromptInput {
   analysis: Analysis;
   suite: SuiteStat;
   devVersion: DevVersionResult;
+  repo: Repository;
   /** Override the inferred Jira version (required when branch is main and devVersion is unavailable) */
   versionOverride?: string;
   nowIso?: string;
@@ -31,23 +33,26 @@ function jiraVersion(input: PromptInput): string | null {
   return branchToJiraVersion(input.analysis.job.branch, input.devVersion);
 }
 
-function narrowJql(opts: {
-  suiteSearchToken: string;
-  version: string;
-  versionShort: string;
-  versionZ: string;
-}): string {
+function narrowJql(
+  componentName: string,
+  opts: {
+    suiteSearchToken: string;
+    version: string;
+    versionShort: string;
+    versionZ: string;
+  },
+): string {
   return (
-    `project = OCPBUGS AND issuetype = Bug AND component = "Management Console"` +
+    `project = OCPBUGS AND issuetype = Bug AND component = "${componentName}"` +
     ` AND text ~ "${opts.suiteSearchToken}"` +
     ` AND affectedVersion in ("${opts.version}", "${opts.versionShort}", "${opts.versionZ}")` +
     ` AND status not in (Closed, "Release Pending") ORDER BY created DESC`
   );
 }
 
-function broadJql(): string {
+function broadJql(componentName: string): string {
   return (
-    `project = OCPBUGS AND component = "Management Console"` +
+    `project = OCPBUGS AND component = "${componentName}"` +
     ` AND labels in (ci-watch, automated, ci-watcher) AND created >= -60d ORDER BY created DESC`
   );
 }
@@ -57,7 +62,10 @@ export function generateBugPrompt(input: PromptInput): {
   jqlUrl: string;
   dptoolsAlreadyLinked: boolean;
 } {
-  const { analysis, suite } = input;
+  const { analysis, suite, repo } = input;
+  const component =
+    JIRA.components[repo.component as keyof typeof JIRA.components] ??
+    ({ id: "0", name: repo.component } as const);
   const nowIso = input.nowIso ?? new Date().toISOString();
   const { job } = analysis;
 
@@ -86,7 +94,7 @@ export function generateBugPrompt(input: PromptInput): {
 
   const excludedTotal = analysis.counts.excluded + analysis.counts.noArtifact;
 
-  const narrowQ = narrowJql({
+  const narrowQ = narrowJql(component.name, {
     suiteSearchToken,
     version,
     versionShort,
@@ -120,7 +128,7 @@ export function generateBugPrompt(input: PromptInput): {
         issuetype: { id: JIRA.issueType.bug.id },
         reporter: { id: "<resolve to the current user's accountId>" },
         summary,
-        components: [{ id: JIRA.components.managementConsole.id }],
+        components: [{ id: component.id }],
         versions: [{ name: version }],
         [JIRA.fields.targetVersion]: [{ name: version }],
         labels: [JIRA.labels.automated, JIRA.labels.ciWatch],
@@ -130,7 +138,7 @@ export function generateBugPrompt(input: PromptInput): {
     2,
   );
 
-  const markdown = `# OCPBUGS triage — OpenShift Console CI watcher
+  const markdown = `# OCPBUGS triage — ${repo.name} CI watcher
 
 You are triaging an OpenShift Console CI test failure. Follow the steps in order.
 Use ONLY the facts below — do not invent data, do not guess a root cause.
@@ -139,7 +147,7 @@ Use ONLY the facts below — do not invent data, do not guess a root cause.
 
 | Field | Value |
 | --- | --- |
-| Repo | \`openshift/console\` |
+| Repo | \`${repo.repo}\` |
 | Branch | \`${job.branch}\` |
 | Prow job | \`${job.name}\` |
 | Test suite | \`${suite.name}\` |
@@ -174,7 +182,7 @@ ${narrowQ}
 
 Broad (catches differently-worded ci-watcher bugs):
 \`\`\`jql
-${broadJql()}
+${broadJql(component.name)}
 \`\`\`
 
 **If a match exists:** add a comment containing the Facts table and the sample run links.

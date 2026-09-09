@@ -24,6 +24,7 @@ import {
 import { RhUiExternalLinkIcon } from "@patternfly/react-icons";
 import { useState } from "react";
 import { dptoolsUrl } from "@/lib/ci/links";
+import { prUrl, type Repository } from "@/lib/ci/repository";
 import type { Analysis, DevVersionResult, SuiteStat } from "@/lib/ci/types";
 import { BugPromptPanel } from "./BugPromptPanel";
 
@@ -31,6 +32,7 @@ interface Props {
   suite: SuiteStat;
   analysis: Analysis;
   devVersion: DevVersionResult;
+  repo: Repository;
   onClose: () => void;
 }
 
@@ -42,6 +44,7 @@ export function SuiteDetailPanel({
   suite,
   analysis,
   devVersion,
+  repo,
   onClose,
 }: Props) {
   const [activeTab, setActiveTab] = useState(0);
@@ -178,7 +181,7 @@ export function SuiteDetailPanel({
                               {" — PR "}
                               <Button
                                 component="a"
-                                href={`https://github.com/openshift/console/pull/${build.prNumber}`}
+                                href={prUrl(repo, build.prNumber)}
                                 target="_blank"
                                 rel="noreferrer"
                                 variant="link"
@@ -235,6 +238,7 @@ export function SuiteDetailPanel({
                     analysis={analysis}
                     suite={suite}
                     devVersion={devVersion}
+                    repo={repo}
                   />
                 </div>
               </Tab>

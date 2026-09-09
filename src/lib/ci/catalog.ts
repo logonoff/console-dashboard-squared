@@ -1,20 +1,20 @@
 /**
  * Branch and job discovery from the GCS directory listing.
  *
- * One GCS call enumerates all pr-logs/directory/ prefixes for openshift/console,
+ * One GCS call enumerates all pr-logs/directory/ prefixes,
  * yielding both the branch set and every job suffix for every branch.
  *
  * This is entirely dynamic — no hardcoded job names or branch lists.
  */
 
 import { gcsListPage } from "./gcs";
+import {
+  branchJobRE,
+  catalogPrefix,
+  getRepository,
+  jobPrefix,
+} from "./repository";
 import type { BranchEntry, JobRef } from "./types";
-
-const JOB_PREFIX = "pull-ci-openshift-console-";
-const DIR_PREFIX = `pr-logs/directory/${JOB_PREFIX}`;
-// Matches: pull-ci-openshift-console-<branch>-<suffix>/
-const BRANCH_JOB_RE =
-  /^pull-ci-openshift-console-(main|release-\d+\.\d+)-(.+)$/;
 
 function parseSemver(branch: string): [number, number] {
   const m = branch.match(/^release-(\d+)\.(\d+)$/);
@@ -23,31 +23,34 @@ function parseSemver(branch: string): [number, number] {
 }
 
 export async function fetchCatalog(): Promise<BranchEntry[]> {
-  // Single GCS list call — no pagination needed at this prefix in practice
+  const repo = getRepository();
+  const dirPrefix = catalogPrefix(repo);
+  const branchJobPattern = branchJobRE(repo);
+  const jPrefix = jobPrefix(repo);
+
   let pageToken: string | undefined;
   const branchMap = new Map<string, Map<string, JobRef>>();
 
   do {
     const page = await gcsListPage({
-      prefix: DIR_PREFIX,
+      prefix: dirPrefix,
       delimiter: "/",
       pageToken,
       fields: "prefixes,nextPageToken",
     });
 
     for (const pfx of page.prefixes) {
-      // pfx looks like "pr-logs/directory/pull-ci-openshift-console-release-5.0-e2e-gcp-console/"
       const segment = pfx.replace(/\/$/, "").split("/").pop() ?? "";
-      const m = segment.match(BRANCH_JOB_RE);
+      const m = segment.match(branchJobPattern);
       if (!m) continue;
       const [, branch, suffix] = m;
       if (!branchMap.has(branch)) branchMap.set(branch, new Map());
-      const jobName = `${JOB_PREFIX}${branch}-${suffix}`;
+      const jobName = `${jPrefix}${branch}-${suffix}`;
       branchMap.get(branch)?.set(suffix, {
         branch,
         suffix,
         name: jobName,
-        lastRunIso: null, // populated later by the /api/jobs route
+        lastRunIso: null,
       });
     }
 

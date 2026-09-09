@@ -7,6 +7,7 @@
 import { AGGREGATE_BRANCH } from "@/lib/ci/constants";
 import { branchToJiraVersion } from "@/lib/ci/devVersion";
 import { dptoolsUrl } from "@/lib/ci/links";
+import type { Repository } from "@/lib/ci/repository";
 import type { Analysis, DevVersionResult } from "@/lib/ci/types";
 import { JIRA } from "./constants";
 
@@ -27,7 +28,11 @@ function escMd(s: string): string {
 export function generateBulkTriagePrompt(
   analysis: Analysis,
   devVersion: DevVersionResult,
+  repo: Repository,
 ): string {
+  const component =
+    JIRA.components[repo.component as keyof typeof JIRA.components] ??
+    ({ id: "0", name: repo.component } as const);
   const { job, counts, windowDays, windowStartIso, windowEndIso } = analysis;
   const nowIso = new Date().toISOString();
 
@@ -83,7 +88,7 @@ export function generateBulkTriagePrompt(
         issuetype: { id: JIRA.issueType.bug.id },
         reporter: { id: "<resolve current user accountId — once per session>" },
         summary: `[ci-watcher]: ${isAggregate ? "<branch>" : job.branch} - <Suite name> has <Failure %>% failure rate`,
-        components: [{ id: JIRA.components.managementConsole.id }],
+        components: [{ id: component.id }],
         versions: [
           { name: isAggregate ? "<version for this branch>" : jiraVer },
         ],
@@ -98,27 +103,27 @@ export function generateBulkTriagePrompt(
   );
 
   const broadJql =
-    `project = OCPBUGS AND component = "Management Console"` +
+    `project = OCPBUGS AND component = "${component.name}"` +
     ` AND labels in (ci-watch, automated, ci-watcher) AND created >= -60d ORDER BY created DESC`;
 
   const narrowJqlTemplate =
-    `project = OCPBUGS AND issuetype = Bug AND component = "Management Console"\n` +
+    `project = OCPBUGS AND issuetype = Bug AND component = "${component.name}"\n` +
     `  AND text ~ "<basename of suite path>"\n` +
     (isAggregate
       ? `  AND affectedVersion in ("<version>", "<versionShort>", "<versionZ>")\n`
       : `  AND affectedVersion in ("${jiraVer}", "${versionShort}", "${versionZ}")\n`) +
     `  AND status not in (Closed, "Release Pending") ORDER BY created DESC`;
 
-  return `# OCPBUGS bulk triage — OpenShift Console CI watcher
+  return `# OCPBUGS bulk triage — ${repo.name} CI watcher
 
-You are triaging **${actionable.length}** OpenShift Console CI test suite(s) that have an unhealthy rate ≥ ${UNHEALTHY_THRESHOLD * 100}%.
+You are triaging **${actionable.length}** ${repo.name} CI test suite(s) that have an unhealthy rate ≥ ${UNHEALTHY_THRESHOLD * 100}%.
 Process each suite in order. Use ONLY the data provided. Do not invent root causes or guess at fixes.
 
 ## Context (generated ${nowIso})
 
 | Field | Value |
 | --- | --- |
-| Repo | \`openshift/console\` |
+| Repo | \`${repo.repo}\` |
 | Branch | \`${job.branch}\` |
 | Prow job | \`${job.name}\` |
 | Window | last ${windowDays} days (${windowStartIso.slice(0, 10)} → ${windowEndIso.slice(0, 10)}) |
