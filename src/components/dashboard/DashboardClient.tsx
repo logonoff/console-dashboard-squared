@@ -11,11 +11,21 @@ import {
   PageSection,
   Spinner,
 } from "@patternfly/react-core";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCatalog, useJobs } from "@/hooks/useCatalog";
 import { useRunAnalysis } from "@/hooks/useRunAnalysis";
-import type { Build, DevVersionResult, SuiteStat } from "@/lib/ci/types";
-import { ControlBar, type MetricKey, type ViewKey } from "./ControlBar";
+import type {
+  Build,
+  DevVersionResult,
+  JobRef,
+  SuiteStat,
+} from "@/lib/ci/types";
+import {
+  AGGREGATE_BRANCH,
+  ControlBar,
+  type MetricKey,
+  type ViewKey,
+} from "./ControlBar";
 import { HeatmapGrid } from "./HeatmapGrid";
 import { HeatmapLegend } from "./HeatmapLegend";
 import { HeatmapMatrix } from "./HeatmapMatrix";
@@ -35,7 +45,32 @@ export function DashboardClient() {
   // Catalog
   const { branches, loading: catalogLoading } = useCatalog();
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
-  const { jobs } = useJobs(selectedBranch);
+  // useJobs only when not in aggregate mode — returns [] when branch is null
+  const { jobs: singleBranchJobs } = useJobs(
+    selectedBranch === AGGREGATE_BRANCH ? null : selectedBranch,
+  );
+
+  // Job suffixes common to ALL branches (intersection) — available in aggregate mode
+  const aggregateJobs = useMemo<JobRef[]>(() => {
+    if (branches.length === 0) return [];
+    const suffixSets = branches.map(
+      (b) => new Set(b.jobs.map((j) => j.suffix)),
+    );
+    const [first, ...rest] = suffixSets;
+    const common = [...(first ?? [])].filter((s) =>
+      rest.every((set) => set.has(s)),
+    );
+    return common.sort().map((suffix) => ({
+      branch: AGGREGATE_BRANCH,
+      suffix,
+      name: suffix, // used as the select option value
+      lastRunIso: null,
+    }));
+  }, [branches]);
+
+  const jobs =
+    selectedBranch === AGGREGATE_BRANCH ? aggregateJobs : singleBranchJobs;
+
   const [selectedJobName, setSelectedJobName] = useState<string | null>(null);
   const [windowDays, setWindowDays] = useState(14);
 
@@ -72,23 +107,51 @@ export function DashboardClient() {
     : null;
 
   const doRun = useCallback(
-    (force = false) => {
+    async (force = false) => {
       if (!selectedJob) return;
       setPendingFetch(true);
-      fetch(
-        `/api/runs?job=${encodeURIComponent(selectedJob.name)}&days=${windowDays}${force ? "&force=1" : ""}`,
-      )
-        .then((r) => r.json())
-        .then((data: { builds: Build[]; windowDays: number }) => {
-          setPendingFetch(false);
-          run(selectedJob, data.builds, data.windowDays, force);
-        })
-        .catch((err) => {
-          setPendingFetch(false);
-          console.error("Failed to fetch runs:", err);
-        });
+      try {
+        let combinedBuilds: Build[];
+        let effectiveJob: JobRef;
+
+        if (selectedBranch === AGGREGATE_BRANCH) {
+          // Fetch runs for every branch's version of this job suffix in parallel
+          const branchJobs = branches.flatMap((b) =>
+            b.jobs.filter((j) => j.suffix === selectedJob.suffix),
+          );
+          const results = await Promise.all(
+            branchJobs.map((bj) =>
+              fetch(
+                `/api/runs?job=${encodeURIComponent(bj.name)}&days=${windowDays}${force ? "&force=1" : ""}`,
+              )
+                .then((r) => r.json())
+                .then((d: { builds: Build[] }) => d.builds),
+            ),
+          );
+          combinedBuilds = results.flat();
+          effectiveJob = {
+            branch: AGGREGATE_BRANCH,
+            suffix: selectedJob.suffix,
+            // Regex accepted by dptools `name=` param — matches all branches.
+            name: `pull-ci-openshift-console-.*-${selectedJob.suffix}`,
+            lastRunIso: null,
+          };
+        } else {
+          const data: { builds: Build[]; windowDays: number } = await fetch(
+            `/api/runs?job=${encodeURIComponent(selectedJob.name)}&days=${windowDays}${force ? "&force=1" : ""}`,
+          ).then((r) => r.json());
+          combinedBuilds = data.builds;
+          effectiveJob = selectedJob;
+        }
+
+        setPendingFetch(false);
+        run(effectiveJob, combinedBuilds, windowDays, force);
+      } catch (err) {
+        setPendingFetch(false);
+        console.error("Failed to fetch runs:", err);
+      }
     },
-    [selectedJob, windowDays, run],
+    [selectedJob, selectedBranch, branches, windowDays, run],
   );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: windowDays is captured by doRun

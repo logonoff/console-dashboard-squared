@@ -194,6 +194,11 @@ export interface SuiteStat {
    */
   totalPRs: number;
   cells: Record<BuildId, CellState>;
+  /**
+   * Branches where this suite appeared and ran, derived from each build's jobName.
+   * Single-element in normal mode; multi-element in aggregate mode.
+   */
+  branches: string[];
 }
 
 // ---------------------------------------------------------------------------
