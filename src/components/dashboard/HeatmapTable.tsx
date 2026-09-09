@@ -30,7 +30,7 @@ interface Props {
   onSelectSuite: (suite: SuiteStat) => void;
 }
 
-type SortCol = "name" | "rate" | "runs" | "failed" | "flaked";
+type SortCol = "name" | "rate" | "runs" | "failed" | "flaked" | "prs";
 
 function rateToSeverity(rate: number): SeverityType {
   if (rate === 0) return SeverityType.none;
@@ -85,6 +85,7 @@ export function HeatmapTable({
       else if (sortCol === "runs") diff = a.appearedIn - b.appearedIn;
       else if (sortCol === "failed") diff = a.failedIn - b.failedIn;
       else if (sortCol === "flaked") diff = a.flakedIn - b.flakedIn;
+      else if (sortCol === "prs") diff = a.distinctPRs - b.distinctPRs;
       return sortDir === "asc" ? diff : -diff;
     });
 
@@ -125,6 +126,9 @@ export function HeatmapTable({
               </Th>
               <Th sort={{ sortBy, onSort, columnIndex: 5 }} width={10}>
                 Flaked
+              </Th>
+              <Th sort={{ sortBy, onSort, columnIndex: 6 }} width={10}>
+                PRs affected
               </Th>
               <Th width={10}>Search</Th>
             </Tr>
@@ -190,6 +194,23 @@ export function HeatmapTable({
                   <Td dataLabel="Runs">{suite.appearedIn}</Td>
                   <Td dataLabel="Failed">{suite.failedIn}</Td>
                   <Td dataLabel="Flaked">{suite.flakedIn}</Td>
+                  <Td dataLabel="PRs affected" modifier="nowrap">
+                    {suite.totalPRs > 0 ? (
+                      <>
+                        {suite.distinctPRs}
+                        <span
+                          style={{
+                            color: "var(--pf-t--global--text--color--subtle)",
+                            fontSize: 11,
+                          }}
+                        >
+                          {" "}/ {suite.totalPRs}
+                        </span>
+                      </>
+                    ) : (
+                      <span style={{ color: "var(--pf-t--global--text--color--subtle)" }}>—</span>
+                    )}
+                  </Td>
                   <Td dataLabel="Search">
                     <Button
                       component="a"
@@ -222,6 +243,7 @@ function indexToCol(i: number): SortCol {
     3: "runs",
     4: "failed",
     5: "flaked",
+    6: "prs",
   };
   return map[i] ?? "rate";
 }
