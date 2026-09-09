@@ -12,17 +12,27 @@
 import { gcsListAll } from "./gcs";
 
 /**
- * Verbatim port of the ci-search junit filename filter.
- * Key properties verified against real builds:
+ * junit filename filter — verbatim from the OpenShift CI prow spyglass config
+ * (core-services/prow/02_config/_config.yaml required_files entry for the
+ * junit lens): .*junit.*\.xml
+ *
+ * Matches any artifact whose full GCS path contains "junit" and ends with
+ * ".xml". Verified against real builds:
+ *
  *   MATCH  .../junit-playwright.xml
  *   MATCH  .../junit_cypress-<hash>.xml
  *   MATCH  .../junit.xml
  *   MATCH  .../junit_operator.xml
  *   MATCH  .../junit/junit_e2e_analysis__20260909.xml
- *   skip   .../playwright-standard-junit.xml   (basename does not start with "junit")
- *   skip   prowjob_junit.xml                   (no "/" before "junit")
+ *   MATCH  .../eslint.junit.xml            (*.junit.xml — frontend job)
+ *   MATCH  .../gherkin-lint.junit.xml
+ *   MATCH  .../duplicated deps.junit.xml   (spaces OK)
+ *   MATCH  .../playwright-standard-junit.xml  (merged with junit-playwright.xml;
+ *             our retry-dedup still yields the correct 1 fail / 8 flake result)
+ *   MATCH  prowjob_junit.xml               (always passes; hidden by default
+ *             low-sample/healthy filter since distinctPRs=0)
  */
-export const JUNIT_RE = /.+\/junit((_[^_]+)?(_\d+-\d+)?(_\d+)?|.+)?\.xml$/;
+export const JUNIT_RE = /.*junit.*\.xml$/;
 
 /**
  * Discover all junit artifact paths for a build by performing a full

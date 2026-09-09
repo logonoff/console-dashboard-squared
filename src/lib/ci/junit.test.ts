@@ -81,13 +81,45 @@ describe("JUNIT_RE", () => {
       ),
     ).toBe(true);
   });
-  it("does NOT match playwright-standard-junit.xml (basename doesn't start with junit)", () => {
+  it("matches eslint.junit.xml (*.junit.xml convention)", () => {
+    expect(
+      JUNIT_RE.test("artifacts/test/artifacts/eslint.junit.xml"),
+    ).toBe(true);
+  });
+  it("matches gherkin-lint.junit.xml (hyphen in stem)", () => {
+    expect(
+      JUNIT_RE.test("artifacts/test/artifacts/gherkin-lint.junit.xml"),
+    ).toBe(true);
+  });
+  it("matches 'duplicated deps.junit.xml' (spaces in filename)", () => {
+    expect(
+      JUNIT_RE.test(
+        "artifacts/test/artifacts/duplicated deps.junit.xml",
+      ),
+    ).toBe(true);
+  });
+  it("matches eslint.junit.xml (*.junit.xml — frontend job convention)", () => {
+    expect(
+      JUNIT_RE.test("artifacts/test/artifacts/eslint.junit.xml"),
+    ).toBe(true);
+  });
+  it("matches gherkin-lint.junit.xml", () => {
+    expect(
+      JUNIT_RE.test("artifacts/test/artifacts/gherkin-lint.junit.xml"),
+    ).toBe(true);
+  });
+  it("matches 'duplicated deps.junit.xml' (spaces in filename)", () => {
+    expect(
+      JUNIT_RE.test("artifacts/test/artifacts/duplicated deps.junit.xml"),
+    ).toBe(true);
+  });
+  it("matches playwright-standard-junit.xml (prow includes it; retry-dedup still correct)", () => {
     expect(
       JUNIT_RE.test("artifacts/test/artifacts/playwright-standard-junit.xml"),
-    ).toBe(false);
+    ).toBe(true);
   });
-  it("does NOT match prowjob_junit.xml (no slash before junit)", () => {
-    expect(JUNIT_RE.test("prowjob_junit.xml")).toBe(false);
+  it("matches prowjob_junit.xml (always healthy; hidden by default low-sample filter)", () => {
+    expect(JUNIT_RE.test("prowjob_junit.xml")).toBe(true);
   });
   it("does NOT match build-log.txt", () => {
     expect(JUNIT_RE.test("artifacts/build-log.txt")).toBe(false);
