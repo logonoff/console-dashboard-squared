@@ -1,0 +1,228 @@
+"use client";
+
+import {
+  IconStatus,
+  Status,
+} from "@patternfly/react-component-groups/dist/esm/Status";
+import { Button } from "@patternfly/react-core";
+import { ExternalLinkAltIcon } from "@patternfly/react-icons";
+import {
+  InnerScrollContainer,
+  type ISortBy,
+  OuterScrollContainer,
+  Table,
+  Tbody,
+  Td,
+  Th,
+  Thead,
+  Tr,
+} from "@patternfly/react-table";
+import { useState } from "react";
+import { dptoolsUrl } from "@/lib/ci/links";
+import type { Analysis, SuiteStat } from "@/lib/ci/types";
+
+interface Props {
+  analysis: Analysis;
+  metric: "unhealthyRate" | "failureRate" | "flakeRate";
+  suiteFilter: string;
+  showLowSample: boolean;
+  showCiOperator: boolean;
+  onSelectSuite: (suite: SuiteStat) => void;
+}
+
+type SortCol = "name" | "rate" | "runs" | "failed" | "flaked";
+
+function rateToIconStatus(rate: number): IconStatus {
+  if (rate === 0) return IconStatus.success;
+  if (rate <= 0.1) return IconStatus.success;
+  if (rate <= 0.25) return IconStatus.warning;
+  if (rate <= 0.5) return IconStatus.warning;
+  return IconStatus.danger;
+}
+
+function rateToLabel(rate: number): string {
+  const pct = Math.round(rate * 100);
+  if (pct === 0) return "Healthy";
+  if (pct <= 10) return "Low flakiness";
+  if (pct <= 25) return "Moderate";
+  if (pct <= 50) return "High";
+  return "Critical";
+}
+
+export function HeatmapTable({
+  analysis,
+  metric,
+  suiteFilter,
+  showLowSample,
+  showCiOperator,
+  onSelectSuite,
+}: Props) {
+  const [sortBy, setSortBy] = useState<ISortBy>({
+    index: 1,
+    direction: "desc",
+  });
+
+  const getRate = (s: SuiteStat) => s[metric];
+
+  const sortCol = indexToCol(sortBy.index ?? 1);
+  const sortDir = sortBy.direction ?? "desc";
+
+  const rows = analysis.suites
+    .filter((s) => {
+      if (!showLowSample && s.appearedIn < 3) return false;
+      if (!showCiOperator && s.origin === "ci-operator") return false;
+      if (
+        suiteFilter &&
+        !s.name.toLowerCase().includes(suiteFilter.toLowerCase())
+      )
+        return false;
+      return true;
+    })
+    .sort((a, b) => {
+      let diff = 0;
+      if (sortCol === "name") diff = a.name.localeCompare(b.name);
+      else if (sortCol === "rate") diff = getRate(a) - getRate(b);
+      else if (sortCol === "runs") diff = a.appearedIn - b.appearedIn;
+      else if (sortCol === "failed") diff = a.failedIn - b.failedIn;
+      else if (sortCol === "flaked") diff = a.flakedIn - b.flakedIn;
+      return sortDir === "asc" ? diff : -diff;
+    });
+
+  function onSort(_: React.MouseEvent, colIdx: number, dir: "asc" | "desc") {
+    setSortBy({ index: colIdx, direction: dir });
+  }
+
+  const metricLabel =
+    metric === "failureRate"
+      ? "Failure rate"
+      : metric === "flakeRate"
+        ? "Flake rate"
+        : "Unhealthy rate";
+
+  return (
+    <OuterScrollContainer>
+      <InnerScrollContainer>
+        <Table
+          aria-label="Test suite failure table"
+          variant="compact"
+          borders={false}
+          isStickyHeader
+        >
+          <Thead>
+            <Tr>
+              <Th sort={{ sortBy, onSort, columnIndex: 0 }} width={40}>
+                Suite / spec
+              </Th>
+              <Th sort={{ sortBy, onSort, columnIndex: 1 }} width={15}>
+                {metricLabel}
+              </Th>
+              <Th width={10}>Status</Th>
+              <Th sort={{ sortBy, onSort, columnIndex: 3 }} width={10}>
+                Runs
+              </Th>
+              <Th sort={{ sortBy, onSort, columnIndex: 4 }} width={10}>
+                Failed
+              </Th>
+              <Th sort={{ sortBy, onSort, columnIndex: 5 }} width={10}>
+                Flaked
+              </Th>
+              <Th width={10}>Search</Th>
+            </Tr>
+          </Thead>
+          <Tbody>
+            {rows.map((suite) => {
+              const rate = getRate(suite);
+              const pct = Math.round(rate * 100);
+              const searchUrl = dptoolsUrl({
+                searchTerm: suite.searchTerm,
+                jobName: analysis.job.name,
+                windowDays: analysis.windowDays,
+              });
+              return (
+                <Tr
+                  key={suite.name}
+                  isClickable
+                  onRowClick={() => onSelectSuite(suite)}
+                >
+                  <Td dataLabel="Suite / spec" modifier="truncate">
+                    <Button
+                      variant="link"
+                      isInline
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectSuite(suite);
+                      }}
+                    >
+                      {suite.name.split("/").pop() ?? suite.name}
+                    </Button>
+                    {suite.name.includes("/") && (
+                      <span
+                        style={{
+                          display: "block",
+                          fontSize: 11,
+                          color: "var(--pf-t--global--text--color--subtle)",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {suite.name}
+                      </span>
+                    )}
+                  </Td>
+                  <Td dataLabel={metricLabel} modifier="nowrap">
+                    {pct}%{" "}
+                    <span
+                      style={{
+                        color: "var(--pf-t--global--text--color--subtle)",
+                        fontSize: 11,
+                      }}
+                    >
+                      ({suite.failedIn + suite.flakedIn}/{suite.appearedIn})
+                    </span>
+                  </Td>
+                  <Td dataLabel="Status">
+                    <Status
+                      status={rateToIconStatus(rate)}
+                      label={rateToLabel(rate)}
+                      variant="plain"
+                    />
+                  </Td>
+                  <Td dataLabel="Runs">{suite.appearedIn}</Td>
+                  <Td dataLabel="Failed">{suite.failedIn}</Td>
+                  <Td dataLabel="Flaked">{suite.flakedIn}</Td>
+                  <Td dataLabel="Search">
+                    <Button
+                      component="a"
+                      href={searchUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      variant="link"
+                      isInline
+                      icon={<ExternalLinkAltIcon />}
+                      iconPosition="end"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      dptools
+                    </Button>
+                  </Td>
+                </Tr>
+              );
+            })}
+          </Tbody>
+        </Table>
+      </InnerScrollContainer>
+    </OuterScrollContainer>
+  );
+}
+
+function indexToCol(i: number): SortCol {
+  const map: Record<number, SortCol> = {
+    0: "name",
+    1: "rate",
+    3: "runs",
+    4: "failed",
+    5: "flaked",
+  };
+  return map[i] ?? "rate";
+}

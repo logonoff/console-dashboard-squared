@@ -1,0 +1,334 @@
+"use client";
+
+import {
+  Button,
+  MenuToggle,
+  SearchInput,
+  Select,
+  SelectList,
+  SelectOption,
+  Switch,
+  ToggleGroup,
+  ToggleGroupItem,
+  Toolbar,
+  ToolbarContent,
+  ToolbarGroup,
+  ToolbarItem,
+  Tooltip,
+} from "@patternfly/react-core";
+import { SyncAltIcon } from "@patternfly/react-icons";
+import { useState } from "react";
+import type { BranchEntry, JobRef } from "@/lib/ci/types";
+
+export type MetricKey = "unhealthyRate" | "failureRate" | "flakeRate";
+export type ViewKey = "matrix" | "grid" | "table";
+
+interface Props {
+  branches: BranchEntry[];
+  selectedBranch: string | null;
+  onBranchChange: (branch: string) => void;
+  jobs: JobRef[];
+  selectedJob: string | null;
+  onJobChange: (jobName: string) => void;
+  windowDays: number;
+  onWindowChange: (days: number) => void;
+  view: ViewKey;
+  onViewChange: (v: ViewKey) => void;
+  metric: MetricKey;
+  onMetricChange: (m: MetricKey) => void;
+  suiteFilter: string;
+  onSuiteFilterChange: (v: string) => void;
+  showLowSample: boolean;
+  onShowLowSampleChange: (v: boolean) => void;
+  showCiOperator: boolean;
+  onShowCiOperatorChange: (v: boolean) => void;
+  loading: boolean;
+  onRefresh: () => void;
+  onForceRefresh: () => void;
+}
+
+function BranchSelect({
+  branches,
+  value,
+  onChange,
+}: {
+  branches: BranchEntry[];
+  value: string | null;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Select
+      isOpen={open}
+      onOpenChange={setOpen}
+      selected={value ?? undefined}
+      onSelect={(_e, v) => {
+        onChange(String(v));
+        setOpen(false);
+      }}
+      toggle={(ref) => (
+        <MenuToggle
+          ref={ref}
+          onClick={() => setOpen(!open)}
+          isExpanded={open}
+          style={{ minWidth: 130 }}
+        >
+          {value ?? "Select branch"}
+        </MenuToggle>
+      )}
+    >
+      <SelectList>
+        {branches.map((b) => (
+          <SelectOption key={b.id} value={b.id}>
+            {b.id}
+          </SelectOption>
+        ))}
+      </SelectList>
+    </Select>
+  );
+}
+
+function JobSelect({
+  jobs,
+  value,
+  onChange,
+}: {
+  jobs: JobRef[];
+  value: string | null;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const now = Date.now();
+  const STALE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+  return (
+    <Select
+      isOpen={open}
+      onOpenChange={setOpen}
+      selected={value ?? undefined}
+      onSelect={(_e, v) => {
+        onChange(String(v));
+        setOpen(false);
+      }}
+      toggle={(ref) => (
+        <MenuToggle
+          ref={ref}
+          onClick={() => setOpen(!open)}
+          isExpanded={open}
+          style={{ minWidth: 200 }}
+        >
+          {value
+            ? (jobs.find((j) => j.name === value)?.suffix ?? value)
+            : "Select job"}
+        </MenuToggle>
+      )}
+    >
+      <SelectList>
+        {jobs.map((j) => {
+          const stale = j.lastRunIso
+            ? now - new Date(j.lastRunIso).getTime() > STALE_MS
+            : false;
+          return (
+            <SelectOption
+              key={j.name}
+              value={j.name}
+              description={stale ? "⚠ stale" : undefined}
+            >
+              {j.suffix}
+            </SelectOption>
+          );
+        })}
+      </SelectList>
+    </Select>
+  );
+}
+
+function WindowSelect({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const options = [7, 14, 30];
+  return (
+    <Select
+      isOpen={open}
+      onOpenChange={setOpen}
+      selected={value}
+      onSelect={(_e, v) => {
+        onChange(Number(v));
+        setOpen(false);
+      }}
+      toggle={(ref) => (
+        <MenuToggle
+          ref={ref}
+          onClick={() => setOpen(!open)}
+          isExpanded={open}
+          style={{ minWidth: 90 }}
+        >
+          {value}d
+        </MenuToggle>
+      )}
+    >
+      <SelectList>
+        {options.map((d) => (
+          <SelectOption key={d} value={d}>
+            {d} days
+          </SelectOption>
+        ))}
+      </SelectList>
+    </Select>
+  );
+}
+
+export function ControlBar({
+  branches,
+  selectedBranch,
+  onBranchChange,
+  jobs,
+  selectedJob,
+  onJobChange,
+  windowDays,
+  onWindowChange,
+  view,
+  onViewChange,
+  metric,
+  onMetricChange,
+  suiteFilter,
+  onSuiteFilterChange,
+  showLowSample,
+  onShowLowSampleChange,
+  showCiOperator,
+  onShowCiOperatorChange,
+  loading,
+  onRefresh,
+  onForceRefresh,
+}: Props) {
+  return (
+    <Toolbar>
+      <ToolbarContent>
+        <ToolbarGroup>
+          <ToolbarItem>
+            <BranchSelect
+              branches={branches}
+              value={selectedBranch}
+              onChange={onBranchChange}
+            />
+          </ToolbarItem>
+          <ToolbarItem>
+            <JobSelect jobs={jobs} value={selectedJob} onChange={onJobChange} />
+          </ToolbarItem>
+          <ToolbarItem>
+            <WindowSelect value={windowDays} onChange={onWindowChange} />
+          </ToolbarItem>
+        </ToolbarGroup>
+
+        <ToolbarGroup>
+          <ToolbarItem>
+            <ToggleGroup aria-label="View">
+              <ToggleGroupItem
+                text="Table"
+                buttonId="view-table"
+                isSelected={view === "table"}
+                onChange={() => onViewChange("table")}
+              />
+              <ToggleGroupItem
+                text="Matrix"
+                buttonId="view-matrix"
+                isSelected={view === "matrix"}
+                onChange={() => onViewChange("matrix")}
+              />
+              <ToggleGroupItem
+                text="Grid"
+                buttonId="view-grid"
+                isSelected={view === "grid"}
+                onChange={() => onViewChange("grid")}
+              />
+            </ToggleGroup>
+          </ToolbarItem>
+          <ToolbarItem>
+            <ToggleGroup aria-label="Metric">
+              <ToggleGroupItem
+                text="Unhealthy"
+                buttonId="m-unhealthy"
+                isSelected={metric === "unhealthyRate"}
+                onChange={() => onMetricChange("unhealthyRate")}
+              />
+              <ToggleGroupItem
+                text="Failures"
+                buttonId="m-fail"
+                isSelected={metric === "failureRate"}
+                onChange={() => onMetricChange("failureRate")}
+              />
+              <ToggleGroupItem
+                text="Flakes"
+                buttonId="m-flake"
+                isSelected={metric === "flakeRate"}
+                onChange={() => onMetricChange("flakeRate")}
+              />
+            </ToggleGroup>
+          </ToolbarItem>
+        </ToolbarGroup>
+
+        <ToolbarGroup>
+          <ToolbarItem>
+            <SearchInput
+              placeholder="Filter suites…"
+              value={suiteFilter}
+              onChange={(_e, v) => onSuiteFilterChange(v)}
+              onClear={() => onSuiteFilterChange("")}
+              style={{ minWidth: 180 }}
+            />
+          </ToolbarItem>
+          <ToolbarItem>
+            <Switch
+              label="Low-sample suites"
+              isChecked={showLowSample}
+              onChange={(_e, checked) => onShowLowSampleChange(checked)}
+              aria-label="Show low sample suites"
+            />
+          </ToolbarItem>
+          <ToolbarItem>
+            <Switch
+              label="CI step results"
+              isChecked={showCiOperator}
+              onChange={(_e, checked) => onShowCiOperatorChange(checked)}
+              aria-label="Show CI operator step results"
+            />
+          </ToolbarItem>
+        </ToolbarGroup>
+
+        <ToolbarGroup align={{ default: "alignEnd" }}>
+          <ToolbarItem>
+            <Button
+              variant="secondary"
+              icon={<SyncAltIcon />}
+              isLoading={loading}
+              onClick={onRefresh}
+              isDisabled={loading}
+            >
+              Refresh
+            </Button>
+          </ToolbarItem>
+          <ToolbarItem>
+            <Tooltip
+              content="Re-download artifacts (clears immutable run cache)"
+              position="bottom"
+            >
+              <Button
+                variant="plain"
+                onClick={onForceRefresh}
+                isDisabled={loading}
+                aria-label="Re-download artifacts"
+              >
+                Force
+              </Button>
+            </Tooltip>
+          </ToolbarItem>
+        </ToolbarGroup>
+      </ToolbarContent>
+    </Toolbar>
+  );
+}

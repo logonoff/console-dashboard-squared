@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Mocha Tests" time="102.1330" tests="14" failures="0">
+  <testsuite name="Root Suite" timestamp="2026-09-09T03:56:03" tests="0" file="features/helm-release.feature" time="0.0000" failures="0">
+  </testsuite>
+  <testsuite name="Helm release" timestamp="2026-09-09T03:56:13" tests="14" time="102.1330" failures="0">
+    <testcase name="Helm release Create or Select the project namespace" time="14.2650" classname="Create or Select the project namespace">
+    </testcase>
+    <testcase name="Helm release Open the Helm tab on the navigation bar when helm charts are absent: HR-05-TC01" time="0.4710" classname="Open the Helm tab on the navigation bar when helm charts are absent: HR-05-TC01">
+    </testcase>
+    <testcase name="Helm release Create Helm release page details: HR-05-TC02" time="13.6320" classname="Create Helm release page details: HR-05-TC02">
+    </testcase>
+    <testcase name="Helm release Install Helm Chart from +Add Page using Form View: HR-06-TC04" time="22.2810" classname="Install Helm Chart from +Add Page using Form View: HR-06-TC04">
+    </testcase>
+    <testcase name="Helm release Helm release status verification: HR-01-TC04" time="7.6670" classname="Helm release status verification: HR-01-TC04">
+    </testcase>
+    <testcase name="Helm release Context menu options of helm release:  HR-01-TC01" time="6.3050" classname="Context menu options of helm release:  HR-01-TC01">
+    </testcase>
+    <testcase name="Helm release Open the Helm tab on the navigation bar when helm charts are present: HR-05-TC05" time="0.7000" classname="Open the Helm tab on the navigation bar when helm charts are present: HR-05-TC05">
+    </testcase>
+    <testcase name="Helm release Filter out deployed Helm Charts: HR-05-TC06" time="1.8370" classname="Filter out deployed Helm Charts: HR-05-TC06">
+    </testcase>
+    <testcase name="Helm release Helm release details page: HR-05-TC13" time="3.6560" classname="Helm release details page: HR-05-TC13">
+    </testcase>
+    <testcase name="Helm release Perform Upgrade action on Helm release through Context Menu: HR-08-TC04" time="9.5250" classname="Perform Upgrade action on Helm release through Context Menu: HR-08-TC04">
+    </testcase>
+    <testcase name="Helm release Actions menu on Helm page after helm chart upgrade: HR-08-TC01" time="2.7360" classname="Actions menu on Helm page after helm chart upgrade: HR-08-TC01">
+    </testcase>
+    <testcase name="Helm release Perform the helm chart upgrade for already upgraded helm chart : HR-08-TC02" time="6.1880" classname="Perform the helm chart upgrade for already upgraded helm chart : HR-08-TC02">
+    </testcase>
+    <testcase name="Helm release Perform Rollback action on Helm release through Context Menu: HR-08-TC03" time="6.5500" classname="Perform Rollback action on Helm release through Context Menu: HR-08-TC03">
+    </testcase>
+    <testcase name="Helm release Delete Helm release through Context Menu: HR-01-TC03" time="6.3200" classname="Delete Helm release through Context Menu: HR-01-TC03">
+    </testcase>
+  </testsuite>
+</testsuites>

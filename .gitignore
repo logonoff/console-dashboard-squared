@@ -20,6 +20,9 @@
 # production
 /build
 
+# ci-watcher disk cache
+.cache/
+
 # misc
 .DS_Store
 *.pem

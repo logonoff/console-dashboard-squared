@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CI Watcher — OpenShift Console prow junit failure heatmap
 
-## Getting Started
+Read-only dashboard for analyzing flaky and failing junit test suites across OpenShift CI prow runs for the `openshift/console` repository.
 
-First, run the development server:
+## What it does
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+1. Fetches release branches and prow jobs dynamically — no hardcoded lists. Retired jobs appear with their last-run date.
+2. Scrapes all prow runs over a configurable window (default 14 days).
+3. Discovers and parses junit XML artifacts.
+4. Renders a heatmap in two views: suite × run matrix and compact per-suite grid.
+5. Links each failing suite to `search.dptools.openshift.org` and generates a copy-pasteable markdown prompt for LLM-assisted OCPBUGS triage.
+
+**The app never calls an LLM.** All numbers are computed from junit XML.
+
+## Stack
+
+- **Next.js**, App Router, Turbopack default, `reactCompiler: true`
+- **React**, TypeScript + strict mode
+- **PatternFly** — `@patternfly/react-core`, `@patternfly/react-icons`, `@patternfly/patternfly` (CSS), `@patternfly/react-styles`
+- **`fast-xml-parser`** — junit parsing, zero runtime deps, Vercel-safe
+- **vitest** — unit tests
+- **Biome** — lint/format. No ESLint.
+
+## Running
+
+```sh
+pnpm dev          # dev server on :3000
+pnpm build        # production build
+pnpm lint         # Biome check
+pnpm format       # Biome format --write
+pnpm test         # vitest (offline, uses fixtures)
+NET=1 pnpm test   # + network-gated integration tests
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Name | Default | Purpose |
+|---|---|---|
+| `CI_CACHE_DIR` | `os.tmpdir()/console-dashboard-squared-cache` | Filesystem cache root |
+| `CI_MAX_CONCURRENCY` | `6` | Parallel GCS fetches inside `/api/analyze` |
+| `CI_ANALYZE_BATCH` | `8` | Max build IDs per `/api/analyze` POST |
+| `CI_CLIENT_CONCURRENCY` | `4` | Parallel `/api/analyze` calls from the browser |
+| `GITHUB_TOKEN` | — | Raises GitHub unauthenticated rate limit (60 req/hr) |
