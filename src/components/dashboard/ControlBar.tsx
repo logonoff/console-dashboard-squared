@@ -92,10 +92,12 @@ function JobSelect({
   jobs,
   value,
   onChange,
+  disabled,
 }: {
   jobs: JobRef[];
   value: string | null;
   onChange: (v: string) => void;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const now = Date.now();
@@ -103,7 +105,7 @@ function JobSelect({
 
   return (
     <Select
-      isOpen={open}
+      isOpen={open && !disabled}
       onOpenChange={setOpen}
       selected={value ?? undefined}
       onSelect={(_e, v) => {
@@ -113,8 +115,9 @@ function JobSelect({
       toggle={(ref) => (
         <MenuToggle
           ref={ref}
-          onClick={() => setOpen(!open)}
-          isExpanded={open}
+          onClick={() => !disabled && setOpen(!open)}
+          isExpanded={open && !disabled}
+          isDisabled={disabled}
           style={{ minWidth: 200 }}
         >
           {value
@@ -218,7 +221,12 @@ export function ControlBar({
             />
           </ToolbarItem>
           <ToolbarItem>
-            <JobSelect jobs={jobs} value={selectedJob} onChange={onJobChange} />
+            <JobSelect
+              jobs={jobs}
+              value={selectedJob}
+              onChange={onJobChange}
+              disabled={!selectedBranch}
+            />
           </ToolbarItem>
           <ToolbarItem>
             <WindowSelect value={windowDays} onChange={onWindowChange} />
@@ -227,48 +235,58 @@ export function ControlBar({
 
         <ToolbarGroup>
           <ToolbarItem>
-            <ToggleGroup aria-label="View">
-              <ToggleGroupItem
-                text="Table"
-                buttonId="view-table"
-                isSelected={view === "table"}
-                onChange={() => onViewChange("table")}
-              />
-              <ToggleGroupItem
-                text="Matrix"
-                buttonId="view-matrix"
-                isSelected={view === "matrix"}
-                onChange={() => onViewChange("matrix")}
-              />
-              <ToggleGroupItem
-                text="Grid"
-                buttonId="view-grid"
-                isSelected={view === "grid"}
-                onChange={() => onViewChange("grid")}
-              />
-            </ToggleGroup>
+            <Tooltip
+              content="Table: sortable list · Matrix: suite × run cells · Grid: compact colour squares"
+              position="bottom"
+            >
+              <ToggleGroup aria-label="View">
+                <ToggleGroupItem
+                  text="Table"
+                  buttonId="view-table"
+                  isSelected={view === "table"}
+                  onChange={() => onViewChange("table")}
+                />
+                <ToggleGroupItem
+                  text="Matrix"
+                  buttonId="view-matrix"
+                  isSelected={view === "matrix"}
+                  onChange={() => onViewChange("matrix")}
+                />
+                <ToggleGroupItem
+                  text="Grid"
+                  buttonId="view-grid"
+                  isSelected={view === "grid"}
+                  onChange={() => onViewChange("grid")}
+                />
+              </ToggleGroup>
+            </Tooltip>
           </ToolbarItem>
           <ToolbarItem>
-            <ToggleGroup aria-label="Metric">
-              <ToggleGroupItem
-                text="Unhealthy"
-                buttonId="m-unhealthy"
-                isSelected={metric === "unhealthyRate"}
-                onChange={() => onMetricChange("unhealthyRate")}
-              />
-              <ToggleGroupItem
-                text="Failures"
-                buttonId="m-fail"
-                isSelected={metric === "failureRate"}
-                onChange={() => onMetricChange("failureRate")}
-              />
-              <ToggleGroupItem
-                text="Flakes"
-                buttonId="m-flake"
-                isSelected={metric === "flakeRate"}
-                onChange={() => onMetricChange("flakeRate")}
-              />
-            </ToggleGroup>
+            <Tooltip
+              content="Unhealthy = hard failures + flakes · Failures = final outcome fail · Flakes = fail then pass on retry"
+              position="bottom"
+            >
+              <ToggleGroup aria-label="Metric">
+                <ToggleGroupItem
+                  text="Unhealthy"
+                  buttonId="m-unhealthy"
+                  isSelected={metric === "unhealthyRate"}
+                  onChange={() => onMetricChange("unhealthyRate")}
+                />
+                <ToggleGroupItem
+                  text="Failures"
+                  buttonId="m-fail"
+                  isSelected={metric === "failureRate"}
+                  onChange={() => onMetricChange("failureRate")}
+                />
+                <ToggleGroupItem
+                  text="Flakes"
+                  buttonId="m-flake"
+                  isSelected={metric === "flakeRate"}
+                  onChange={() => onMetricChange("flakeRate")}
+                />
+              </ToggleGroup>
+            </Tooltip>
           </ToolbarItem>
         </ToolbarGroup>
 
@@ -283,34 +301,40 @@ export function ControlBar({
             />
           </ToolbarItem>
           <ToolbarItem>
-            <Switch
-              label="Low-sample suites"
-              isChecked={showLowSample}
-              onChange={(_e, checked) => onShowLowSampleChange(checked)}
-              aria-label="Show low sample suites"
-            />
+            <Tooltip content="Show suites that appeared in fewer than 3 runs — these have too little data for reliable rates" position="bottom">
+              <Switch
+                label="Low-sample suites"
+                isChecked={showLowSample}
+                onChange={(_e, checked) => onShowLowSampleChange(checked)}
+                aria-label="Show low sample suites"
+              />
+            </Tooltip>
           </ToolbarItem>
           <ToolbarItem>
-            <Switch
-              label="CI step results"
-              isChecked={showCiOperator}
-              onChange={(_e, checked) => onShowCiOperatorChange(checked)}
-              aria-label="Show CI operator step results"
-            />
+            <Tooltip content="Show ci-operator step graph results (e.g. clone, build steps) — these are infrastructure steps, not test suites" position="bottom">
+              <Switch
+                label="CI step results"
+                isChecked={showCiOperator}
+                onChange={(_e, checked) => onShowCiOperatorChange(checked)}
+                aria-label="Show CI operator step results"
+              />
+            </Tooltip>
           </ToolbarItem>
         </ToolbarGroup>
 
         <ToolbarGroup align={{ default: "alignEnd" }}>
           <ToolbarItem>
-            <Button
-              variant="secondary"
-              icon={<SyncAltIcon />}
-              isLoading={loading}
-              onClick={onRefresh}
-              isDisabled={loading}
-            >
-              Refresh
-            </Button>
+            <Tooltip content="Re-fetch runs and re-analyze from prow (run cache is kept)" position="bottom">
+              <Button
+                variant="secondary"
+                icon={<SyncAltIcon />}
+                isLoading={loading}
+                onClick={onRefresh}
+                isDisabled={loading}
+              >
+                Refresh
+              </Button>
+            </Tooltip>
           </ToolbarItem>
           <ToolbarItem>
             <Tooltip
