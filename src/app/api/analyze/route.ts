@@ -12,8 +12,9 @@ const CONCURRENCY = Number(process.env.CI_MAX_CONCURRENCY ?? "6");
 const BUILD_ID_RE = /^\d{15,25}$/;
 const JOB_NAME_RE = /^pull-ci-openshift-console-[a-z0-9.-]+-[a-z0-9-]+$/;
 // GCS path must start with pr-logs/pull/ and contain no path traversal.
+// Job names contain dots for version numbers (e.g. release-5.0), hence [a-z0-9.-]+
 const OBJECT_PREFIX_RE =
-  /^pr-logs\/pull\/openshift_console\/\d+\/[a-z0-9-]+\/\d+\/$/;
+  /^pr-logs\/pull\/openshift_console\/\d+\/[a-z0-9.-]+-[a-z0-9-]+\/\d+\/$/;
 
 /** Validate job name is in the catalog (SSRF guard). */
 async function validateJob(jobName: string): Promise<boolean> {
