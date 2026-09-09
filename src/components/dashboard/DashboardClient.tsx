@@ -15,7 +15,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCatalog, useJobs } from "@/hooks/useCatalog";
 import { useRunAnalysis } from "@/hooks/useRunAnalysis";
 import { downloadCsv, generateCsv } from "@/lib/ci/csv";
-import { aggregateJobPattern, type Repository } from "@/lib/ci/repository";
+import {
+  aggregateJobPattern,
+  REPOSITORIES,
+  type Repository,
+} from "@/lib/ci/repository";
 import type {
   Build,
   DevVersionResult,
@@ -44,13 +48,20 @@ const EMPTY_DEV_VERSION: DevVersionResult = {
   resolvedVia: "unavailable",
 };
 
-export function DashboardClient({ repo }: { repo: Repository }) {
+const ALL_REPOS = Object.values(REPOSITORIES);
+const DEFAULT_REPO = REPOSITORIES["openshift/console"] ?? ALL_REPOS[0];
+
+export function DashboardClient() {
+  // Repo selection
+  const [selectedRepo, setSelectedRepo] = useState<Repository>(DEFAULT_REPO);
+
   // Catalog
-  const { branches, loading: catalogLoading } = useCatalog();
+  const { branches, loading: catalogLoading } = useCatalog(selectedRepo);
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
   // useJobs only when not in aggregate mode — returns [] when branch is null
   const { jobs: singleBranchJobs } = useJobs(
     selectedBranch === AGGREGATE_BRANCH ? null : selectedBranch,
+    selectedRepo,
   );
 
   // Job suffixes common to ALL branches (intersection) — available in aggregate mode
@@ -97,11 +108,11 @@ export function DashboardClient({ repo }: { repo: Repository }) {
   const [devVersion, setDevVersion] =
     useState<DevVersionResult>(EMPTY_DEV_VERSION);
   useEffect(() => {
-    fetch("/api/dev-version")
+    fetch(`/api/dev-version?repo=${encodeURIComponent(selectedRepo.repo)}`)
       .then((r) => r.json())
       .then((d) => setDevVersion(d))
       .catch(() => {});
-  }, []);
+  }, [selectedRepo.repo]);
 
   // Analysis
   const { analysis, loading, error, progress, run, cancel } = useRunAnalysis();
@@ -128,7 +139,7 @@ export function DashboardClient({ repo }: { repo: Repository }) {
           const results = await Promise.all(
             branchJobs.map((bj) =>
               fetch(
-                `/api/runs?job=${encodeURIComponent(bj.name)}&days=${windowDays}${force ? "&force=1" : ""}`,
+                `/api/runs?job=${encodeURIComponent(bj.name)}&days=${windowDays}&repo=${encodeURIComponent(selectedRepo.repo)}${force ? "&force=1" : ""}`,
               )
                 .then((r) => r.json())
                 .then((d: { builds: Build[] }) => d.builds),
@@ -139,31 +150,38 @@ export function DashboardClient({ repo }: { repo: Repository }) {
             branch: AGGREGATE_BRANCH,
             suffix: selectedJob.suffix,
             // Regex accepted by dptools `name=` param — matches all branches.
-            name: aggregateJobPattern(repo, selectedJob.suffix),
+            name: aggregateJobPattern(selectedRepo, selectedJob.suffix),
             lastRunIso: null,
           };
         } else {
           const data: { builds: Build[]; windowDays: number } = await fetch(
-            `/api/runs?job=${encodeURIComponent(selectedJob.name)}&days=${windowDays}${force ? "&force=1" : ""}`,
+            `/api/runs?job=${encodeURIComponent(selectedJob.name)}&days=${windowDays}&repo=${encodeURIComponent(selectedRepo.repo)}${force ? "&force=1" : ""}`,
           ).then((r) => r.json());
           combinedBuilds = data.builds;
           effectiveJob = selectedJob;
         }
 
         setPendingFetch(false);
-        run(effectiveJob, combinedBuilds, windowDays, repo, force);
+        run(effectiveJob, combinedBuilds, windowDays, selectedRepo, force);
       } catch (err) {
         setPendingFetch(false);
         console.error("Failed to fetch runs:", err);
       }
     },
-    [selectedJob, selectedBranch, branches, windowDays, repo, run],
+    [selectedJob, selectedBranch, branches, windowDays, selectedRepo, run],
   );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: windowDays is captured by doRun
   useEffect(() => {
     if (selectedJob) doRun(false);
   }, [selectedJob, windowDays, doRun]);
+
+  const handleRepoChange = (repo: Repository) => {
+    setSelectedRepo(repo);
+    setSelectedBranch(null);
+    setSelectedJobName(null);
+    setSelectedSuite(null);
+  };
 
   const handleBranchChange = (branch: string) => {
     setSelectedBranch(branch);
@@ -189,6 +207,9 @@ export function DashboardClient({ repo }: { repo: Repository }) {
       {/* Toolbar — fixed-height, never scrolls */}
       <PageSection variant="secondary" hasBodyWrapper={false}>
         <ControlBar
+          repositories={ALL_REPOS}
+          selectedRepo={selectedRepo}
+          onRepoChange={handleRepoChange}
           branches={branches}
           selectedBranch={selectedBranch}
           onBranchChange={handleBranchChange}
@@ -226,7 +247,7 @@ export function DashboardClient({ repo }: { repo: Repository }) {
           onClose={() => setBulkTriageOpen(false)}
           analysis={analysis}
           devVersion={devVersion}
-          repo={repo}
+          repo={selectedRepo}
         />
       )}
 
@@ -254,7 +275,7 @@ export function DashboardClient({ repo }: { repo: Repository }) {
                   suite={selectedSuite}
                   analysis={analysis}
                   devVersion={devVersion}
-                  repo={repo}
+                  repo={selectedRepo}
                   onClose={() => setSelectedSuite(null)}
                 />
               )

@@ -11,13 +11,13 @@ export const TTL = {
 export type TtlMs = number | "immutable";
 
 export const keys = {
-  catalog: () => "catalog:v1",
+  catalog: (repoSlug: string) => `catalog:v1:${repoSlug}`,
   jobLastRun: (jobName: string) => `joblastrun:v1:${jobName}`,
   runs: (jobName: string, days: number, hourBucket: number) =>
     `runs:v1:${jobName}:${days}:${hourBucket}`,
   junitPaths: (buildId: string) => `junitpaths:v1:${buildId}`,
   runResult: (buildId: string) => `runresult:v1:${buildId}`,
-  devVersion: () => "devversion:v1",
+  devVersion: (repoSlug: string) => `devversion:v1:${repoSlug}`,
 };
 
 /** Quantise a cutoff timestamp to the hour so the runs cache key is stable. */

@@ -12,7 +12,7 @@
  * z-stream (below dev version → X.Y.z) or a trunk (>= dev version → X.Y.0).
  */
 
-import { getRepository } from "./repository";
+import type { Repository } from "./repository";
 import type { DevVersionResult } from "./types";
 
 const GITHUB_API = "https://api.github.com";
@@ -49,13 +49,15 @@ function sortedReleaseBranches(names: string[]): string[] {
     });
 }
 
-async function fetchBranches(): Promise<Array<{ name: string; sha: string }>> {
+async function fetchBranches(
+  repo: Repository,
+): Promise<Array<{ name: string; sha: string }>> {
   const branches: Array<{ name: string; sha: string }> = [];
   let page = 1;
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const res = await fetch(
-      `${GITHUB_API}/repos/${getRepository().repo}/branches?per_page=100&page=${page}`,
+      `${GITHUB_API}/repos/${repo.repo}/branches?per_page=100&page=${page}`,
       { signal: AbortSignal.timeout(TIMEOUT_MS), headers: getGitHubHeaders() },
     );
     if (!res.ok) throw new Error(`GitHub branches: HTTP ${res.status}`);
@@ -68,10 +70,14 @@ async function fetchBranches(): Promise<Array<{ name: string; sha: string }>> {
   return branches;
 }
 
-async function isAncestor(base: string, head: string): Promise<boolean> {
+async function isAncestor(
+  repo: Repository,
+  base: string,
+  head: string,
+): Promise<boolean> {
   // ahead_by === 0 means `head` has no commits that `base` doesn't → head tracks base
   const res = await fetch(
-    `${GITHUB_API}/repos/${getRepository().repo}/compare/${base}...${head}`,
+    `${GITHUB_API}/repos/${repo.repo}/compare/${base}...${head}`,
     { signal: AbortSignal.timeout(TIMEOUT_MS), headers: getGitHubHeaders() },
   );
   if (!res.ok) throw new Error(`GitHub compare: HTTP ${res.status}`);
@@ -79,8 +85,10 @@ async function isAncestor(base: string, head: string): Promise<boolean> {
   return data.ahead_by === 0;
 }
 
-export async function resolveDevVersion(): Promise<DevVersionResult> {
-  const branches = await fetchBranches();
+export async function resolveDevVersion(
+  repo: Repository,
+): Promise<DevVersionResult> {
+  const branches = await fetchBranches(repo);
   const mainSha = branches.find((b) => b.name === "main")?.sha;
   if (!mainSha) throw new Error("Could not find main branch on GitHub");
 
@@ -111,7 +119,7 @@ export async function resolveDevVersion(): Promise<DevVersionResult> {
   while (lo <= hi) {
     const mid = Math.floor((lo + hi) / 2);
     const candidate = releaseBranches[mid];
-    if (await isAncestor("main", candidate)) {
+    if (await isAncestor(repo, "main", candidate)) {
       answer = candidate;
       hi = mid - 1; // look for a lower one
     } else {

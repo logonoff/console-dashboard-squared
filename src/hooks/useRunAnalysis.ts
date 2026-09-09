@@ -98,6 +98,7 @@ export function useRunAnalysis(): UseRunAnalysisResult {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
+                repo: repo.repo,
                 job: batchJobName,
                 // Send the full build objects so the server doesn't need the
                 // cache to resolve objectPrefix — Vercel instances are ephemeral

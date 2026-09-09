@@ -11,8 +11,8 @@ import { gcsListPage } from "./gcs";
 import {
   branchJobRE,
   catalogPrefix,
-  getRepository,
   jobPrefix,
+  type Repository,
 } from "./repository";
 import type { BranchEntry, JobRef } from "./types";
 
@@ -22,8 +22,7 @@ function parseSemver(branch: string): [number, number] {
   return [Infinity, Infinity]; // "main" sorts last → placed first after reverse
 }
 
-export async function fetchCatalog(): Promise<BranchEntry[]> {
-  const repo = getRepository();
+export async function fetchCatalog(repo: Repository): Promise<BranchEntry[]> {
   const dirPrefix = catalogPrefix(repo);
   const branchJobPattern = branchJobRE(repo);
   const jPrefix = jobPrefix(repo);
