@@ -1,0 +1,7 @@
+.git
+.next
+node_modules
+.cache
+*.md
+Dockerfile
+.dockerignore
