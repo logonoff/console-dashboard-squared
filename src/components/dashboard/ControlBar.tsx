@@ -18,11 +18,12 @@ import {
 } from "@patternfly/react-core";
 import { RhUiRefreshIcon } from "@patternfly/react-icons";
 import { useState } from "react";
+import { AGGREGATE_BRANCH } from "@/lib/ci/constants";
 import type { BranchEntry, JobRef } from "@/lib/ci/types";
 
 export type MetricKey = "unhealthyRate" | "failureRate" | "flakeRate";
 export type ViewKey = "matrix" | "grid" | "table";
-export const AGGREGATE_BRANCH = "__aggregate__";
+export { AGGREGATE_BRANCH };
 
 interface Props {
   branches: BranchEntry[];

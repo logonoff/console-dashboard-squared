@@ -9,6 +9,7 @@ import {
   ModalHeader,
 } from "@patternfly/react-core";
 import { useMemo } from "react";
+import { AGGREGATE_BRANCH } from "@/lib/ci/constants";
 import type { Analysis, DevVersionResult } from "@/lib/ci/types";
 import { generateBulkTriagePrompt } from "@/lib/jira/bulkPrompt";
 
@@ -33,6 +34,17 @@ export function BulkTriageModal({
   const actionableCount = analysis.suites.filter(
     (s) => s.unhealthyRate >= 0.1,
   ).length;
+
+  const apiUrl = useMemo(() => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const params = new URLSearchParams({ days: String(analysis.windowDays) });
+    if (analysis.job.branch === AGGREGATE_BRANCH) {
+      params.set("suffix", analysis.job.suffix);
+    } else {
+      params.set("job", analysis.job.name);
+    }
+    return `${origin}/api/bulk-prompt?${params}`;
+  }, [analysis]);
 
   return (
     <Modal
@@ -78,6 +90,30 @@ export function BulkTriageModal({
         >
           The dashboard itself does not create any JIRA issues.
         </p>
+
+        <p
+          style={{
+            marginBottom: "0.25rem",
+            fontSize: 13,
+            fontWeight: 600,
+          }}
+        >
+          API endpoint — call this directly from a Claude skill or script:
+        </p>
+        <ClipboardCopy
+          variant="inline"
+          isReadOnly
+          hoverTip="Copy URL"
+          clickTip="Copied!"
+          style={{
+            marginBottom: "1rem",
+            fontFamily: "monospace",
+            fontSize: 12,
+          }}
+        >
+          {apiUrl}
+        </ClipboardCopy>
+
         <ClipboardCopy
           variant="expansion"
           isCode
