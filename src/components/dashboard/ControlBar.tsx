@@ -319,11 +319,11 @@ export function ControlBar({
           </ToolbarItem>
           <ToolbarItem>
             <Tooltip
-              content="Show suites with fewer than 3 runs AND fewer than 2 distinct PRs with failures — these have too little data for reliable rates"
+              content="Show suites hidden by default: fewer than 3 runs, failures from only one PR, or no failures at all (healthy suites)"
               position="bottom"
             >
               <Switch
-                label="Low-sample suites"
+                label="Low-sample & healthy suites"
                 isChecked={showLowSample}
                 onChange={(_e, checked) => onShowLowSampleChange(checked)}
                 aria-label="Show low sample suites"
