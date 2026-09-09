@@ -319,7 +319,7 @@ export function ControlBar({
           </ToolbarItem>
           <ToolbarItem>
             <Tooltip
-              content="Show suites that appeared in fewer than 3 runs — these have too little data for reliable rates"
+              content="Show suites with fewer than 3 runs AND fewer than 2 distinct PRs with failures — these have too little data for reliable rates"
               position="bottom"
             >
               <Switch
