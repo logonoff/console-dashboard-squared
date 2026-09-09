@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { aggregate } from "./aggregate";
 import { JUNIT_RE } from "./artifacts";
 import { parseJunit } from "./junit";
+import type { Build, JobRef, RunResult, SuiteResult } from "./types";
 
 // ---------------------------------------------------------------------------
 // objectPrefix validation regex (mirrors src/app/api/analyze/route.ts)
@@ -245,5 +247,165 @@ describe("branchToJiraVersion", () => {
         resolvedVia: "unavailable",
       }),
     ).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// aggregate — branches field
+// ---------------------------------------------------------------------------
+
+function makeJob(branch: string, suffix: string): JobRef {
+  return {
+    branch,
+    suffix,
+    name: `pull-ci-openshift-console-${branch}-${suffix}`,
+    lastRunIso: null,
+  };
+}
+
+function makeBuild(
+  id: string,
+  jobName: string,
+  result: "SUCCESS" | "FAILURE" = "SUCCESS",
+): Build {
+  return {
+    id,
+    jobName,
+    result,
+    startedIso: "2026-09-01T00:00:00Z",
+    startedMs: 1756684800000,
+    durationMs: 60000,
+    prNumber: 1,
+    prTitle: null,
+    prAuthor: null,
+    baseRef: "main",
+    objectPrefix: `pr-logs/pull/openshift_console/1/${jobName}/1/`,
+    spyglassUrl: "",
+  };
+}
+
+function makeSuite(name: string, ran = true): SuiteResult {
+  const outcome = ran ? "pass" : "skip";
+  return {
+    name,
+    file: null,
+    origin: "test",
+    cases: [
+      {
+        name: "t",
+        classname: null,
+        outcome,
+        attempts: 1,
+        flaked: false,
+        failureType: null,
+        failureMessage: null,
+        timeSec: 1,
+      },
+    ],
+    counts: {
+      total: 1,
+      passed: ran ? 1 : 0,
+      failed: 0,
+      skipped: ran ? 0 : 1,
+      flaked: 0,
+    },
+    ran,
+  };
+}
+
+function makeRun(buildId: string, suites: SuiteResult[]): RunResult {
+  return {
+    buildId,
+    startedIso: "2026-09-01T00:00:00Z",
+    prowResult: "SUCCESS",
+    status: "analyzed",
+    sourcePaths: [],
+    suites,
+  };
+}
+
+const SUFFIX = "e2e-gcp-console";
+const JOB_50 = `pull-ci-openshift-console-release-5.0-${SUFFIX}`;
+const JOB_51 = `pull-ci-openshift-console-release-5.1-${SUFFIX}`;
+const JOB_MAIN = `pull-ci-openshift-console-main-${SUFFIX}`;
+
+describe("aggregate — SuiteStat.branches", () => {
+  it("single branch: branches contains just that branch", () => {
+    const job = makeJob("release-5.0", SUFFIX);
+    const builds = [makeBuild("1", JOB_50)];
+    const runs = [makeRun("1", [makeSuite("suite-a")])];
+    const analysis = aggregate(job, builds, runs, 14);
+    const suite = analysis.suites.find((s) => s.name === "suite-a");
+    expect(suite?.branches).toEqual(["release-5.0"]);
+  });
+
+  it("multi-branch: branches contains all branches where the suite ran", () => {
+    const job = makeJob("__aggregate__", SUFFIX);
+    const builds = [
+      makeBuild("1", JOB_50),
+      makeBuild("2", JOB_51),
+      makeBuild("3", JOB_MAIN),
+    ];
+    const runs = builds.map((b) => makeRun(b.id, [makeSuite("suite-a")]));
+    const analysis = aggregate(job, builds, runs, 14);
+    const suite = analysis.suites.find((s) => s.name === "suite-a");
+    expect(suite?.branches).toEqual(["main", "release-5.0", "release-5.1"]);
+  });
+
+  it("suite absent from one branch: branches only lists branches where it ran", () => {
+    const job = makeJob("__aggregate__", SUFFIX);
+    const builds = [makeBuild("1", JOB_50), makeBuild("2", JOB_51)];
+    const runs = [
+      makeRun("1", [makeSuite("suite-a")]),
+      makeRun("2", [makeSuite("suite-b")]), // suite-a not present in release-5.1
+    ];
+    const analysis = aggregate(job, builds, runs, 14);
+    const suite = analysis.suites.find((s) => s.name === "suite-a");
+    expect(suite?.branches).toEqual(["release-5.0"]);
+  });
+
+  it("suite skipped in one branch: skipped run excluded from branches", () => {
+    const job = makeJob("__aggregate__", SUFFIX);
+    const builds = [makeBuild("1", JOB_50), makeBuild("2", JOB_51)];
+    const runs = [
+      makeRun("1", [makeSuite("suite-a", true)]), // ran in 5.0
+      makeRun("2", [makeSuite("suite-a", false)]), // all-skipped in 5.1
+    ];
+    const analysis = aggregate(job, builds, runs, 14);
+    const suite = analysis.suites.find((s) => s.name === "suite-a");
+    expect(suite?.branches).toEqual(["release-5.0"]);
+  });
+
+  it("unrecognised jobName format: branches is empty", () => {
+    const job = makeJob("release-5.0", SUFFIX);
+    const builds = [makeBuild("1", "unknown-job-format")];
+    const runs = [makeRun("1", [makeSuite("suite-a")])];
+    const analysis = aggregate(job, builds, runs, 14);
+    const suite = analysis.suites.find((s) => s.name === "suite-a");
+    expect(suite?.branches).toEqual([]);
+  });
+
+  it("branches are sorted lexicographically (main before release-*)", () => {
+    const job = makeJob("__aggregate__", SUFFIX);
+    // Intentionally insert in non-sorted order
+    const builds = [
+      makeBuild("1", JOB_51),
+      makeBuild("2", JOB_MAIN),
+      makeBuild("3", JOB_50),
+    ];
+    const runs = builds.map((b) => makeRun(b.id, [makeSuite("suite-a")]));
+    const analysis = aggregate(job, builds, runs, 14);
+    const suite = analysis.suites.find((s) => s.name === "suite-a");
+    expect(suite?.branches).toEqual(["main", "release-5.0", "release-5.1"]);
+  });
+
+  it("release-3.11 is parsed correctly (double-digit minor version)", () => {
+    const job311 = `pull-ci-openshift-console-release-3.11-${SUFFIX}`;
+    const job = makeJob("release-3.11", SUFFIX);
+    const builds = [makeBuild("1", job311)];
+    const runs = [makeRun("1", [makeSuite("suite-a")])];
+    const analysis = aggregate(job, builds, runs, 14);
+    const suite = analysis.suites.find((s) => s.name === "suite-a");
+    expect(suite?.branches).toEqual(["release-3.11"]);
   });
 });

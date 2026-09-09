@@ -22,6 +22,7 @@ import type { BranchEntry, JobRef } from "@/lib/ci/types";
 
 export type MetricKey = "unhealthyRate" | "failureRate" | "flakeRate";
 export type ViewKey = "matrix" | "grid" | "table";
+export const AGGREGATE_BRANCH = "__aggregate__";
 
 interface Props {
   branches: BranchEntry[];
@@ -73,11 +74,20 @@ function BranchSelect({
           isExpanded={open}
           style={{ minWidth: 130 }}
         >
-          {value ?? "Select branch"}
+          {value === AGGREGATE_BRANCH
+            ? "All branches"
+            : (value ?? "Select branch")}
         </MenuToggle>
       )}
     >
       <SelectList>
+        <SelectOption
+          key={AGGREGATE_BRANCH}
+          value={AGGREGATE_BRANCH}
+          description="Common jobs across all branches"
+        >
+          All branches
+        </SelectOption>
         {branches.map((b) => (
           <SelectOption key={b.id} value={b.id}>
             {b.id}
@@ -301,7 +311,10 @@ export function ControlBar({
             />
           </ToolbarItem>
           <ToolbarItem>
-            <Tooltip content="Show suites that appeared in fewer than 3 runs — these have too little data for reliable rates" position="bottom">
+            <Tooltip
+              content="Show suites that appeared in fewer than 3 runs — these have too little data for reliable rates"
+              position="bottom"
+            >
               <Switch
                 label="Low-sample suites"
                 isChecked={showLowSample}
@@ -311,7 +324,10 @@ export function ControlBar({
             </Tooltip>
           </ToolbarItem>
           <ToolbarItem>
-            <Tooltip content="Show ci-operator step graph results (e.g. clone, build steps) — these are infrastructure steps, not test suites" position="bottom">
+            <Tooltip
+              content="Show ci-operator step graph results (e.g. clone, build steps) — these are infrastructure steps, not test suites"
+              position="bottom"
+            >
               <Switch
                 label="CI step results"
                 isChecked={showCiOperator}
@@ -324,7 +340,10 @@ export function ControlBar({
 
         <ToolbarGroup align={{ default: "alignEnd" }}>
           <ToolbarItem>
-            <Tooltip content="Re-fetch runs and re-analyze from prow (run cache is kept)" position="bottom">
+            <Tooltip
+              content="Re-fetch runs and re-analyze from prow (run cache is kept)"
+              position="bottom"
+            >
               <Button
                 variant="secondary"
                 icon={<RhUiRefreshIcon />}

@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  Severity,
-  SeverityType,
-} from "@patternfly/react-component-groups";
+import { Severity, SeverityType } from "@patternfly/react-component-groups";
 import { Button } from "@patternfly/react-core";
 import { RhUiExternalLinkIcon } from "@patternfly/react-icons";
 import {
@@ -32,6 +29,10 @@ interface Props {
 
 type SortCol = "name" | "rate" | "runs" | "failed" | "flaked" | "prs";
 
+function abbreviateBranch(branch: string): string {
+  return branch === "main" ? "main" : branch.replace("release-", "");
+}
+
 function rateToSeverity(rate: number): SeverityType {
   if (rate === 0) return SeverityType.none;
   if (rate <= 0.1) return SeverityType.minor;
@@ -58,13 +59,13 @@ export function HeatmapTable({
   onSelectSuite,
 }: Props) {
   const [sortBy, setSortBy] = useState<ISortBy>({
-    index: 1,
+    index: 2,
     direction: "desc",
   });
 
   const getRate = (s: SuiteStat) => s[metric];
 
-  const sortCol = indexToCol(sortBy.index ?? 1);
+  const sortCol = indexToCol(sortBy.index ?? 2);
   const sortDir = sortBy.direction ?? "desc";
 
   const rows = analysis.suites
@@ -111,23 +112,24 @@ export function HeatmapTable({
         >
           <Thead>
             <Tr>
-              <Th sort={{ sortBy, onSort, columnIndex: 0 }} width={40}>
+              <Th sort={{ sortBy, onSort, columnIndex: 0 }} width={35}>
                 Suite / spec
               </Th>
-              <Th sort={{ sortBy, onSort, columnIndex: 1 }} width={15}>
+              <Th width={10}>Branch</Th>
+              <Th sort={{ sortBy, onSort, columnIndex: 2 }} width={15}>
                 {metricLabel}
               </Th>
               <Th width={10}>Status</Th>
-              <Th sort={{ sortBy, onSort, columnIndex: 3 }} width={10}>
+              <Th sort={{ sortBy, onSort, columnIndex: 4 }} width={10}>
                 Runs
               </Th>
-              <Th sort={{ sortBy, onSort, columnIndex: 4 }} width={10}>
+              <Th sort={{ sortBy, onSort, columnIndex: 5 }} width={10}>
                 Failed
               </Th>
-              <Th sort={{ sortBy, onSort, columnIndex: 5 }} width={10}>
+              <Th sort={{ sortBy, onSort, columnIndex: 6 }} width={10}>
                 Flaked
               </Th>
-              <Th sort={{ sortBy, onSort, columnIndex: 6 }} width={10}>
+              <Th sort={{ sortBy, onSort, columnIndex: 7 }} width={10}>
                 PRs affected
               </Th>
               <Th width={10}>Search</Th>
@@ -148,7 +150,7 @@ export function HeatmapTable({
                   isClickable
                   onRowClick={() => onSelectSuite(suite)}
                 >
-                  <Td dataLabel="Suite / spec" modifier="truncate">
+                  <Td dataLabel="Suite / spec" modifier="truncate" width={35}>
                     <Button
                       variant="link"
                       isInline
@@ -173,6 +175,16 @@ export function HeatmapTable({
                         {suite.name}
                       </span>
                     )}
+                  </Td>
+                  <Td dataLabel="Branch" modifier="nowrap">
+                    <span
+                      style={{
+                        fontSize: 12,
+                        color: "var(--pf-t--global--text--color--subtle)",
+                      }}
+                    >
+                      {suite.branches.map(abbreviateBranch).join(", ")}
+                    </span>
                   </Td>
                   <Td dataLabel={metricLabel} modifier="nowrap">
                     {pct}%{" "}
@@ -204,11 +216,18 @@ export function HeatmapTable({
                             fontSize: 11,
                           }}
                         >
-                          {" "}/ {suite.totalPRs}
+                          {" "}
+                          / {suite.totalPRs}
                         </span>
                       </>
                     ) : (
-                      <span style={{ color: "var(--pf-t--global--text--color--subtle)" }}>—</span>
+                      <span
+                        style={{
+                          color: "var(--pf-t--global--text--color--subtle)",
+                        }}
+                      >
+                        —
+                      </span>
                     )}
                   </Td>
                   <Td dataLabel="Search">
@@ -239,11 +258,11 @@ export function HeatmapTable({
 function indexToCol(i: number): SortCol {
   const map: Record<number, SortCol> = {
     0: "name",
-    1: "rate",
-    3: "runs",
-    4: "failed",
-    5: "flaked",
-    6: "prs",
+    2: "rate",
+    4: "runs",
+    5: "failed",
+    6: "flaked",
+    7: "prs",
   };
   return map[i] ?? "rate";
 }

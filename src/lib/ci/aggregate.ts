@@ -27,6 +27,13 @@ const TOP_CASES = 5;
 const TOP_MESSAGES_PER_CASE = 3;
 const SAMPLE_FAILING_RUNS = 5;
 
+function branchFromJobName(jobName: string): string | null {
+  const m = /^pull-ci-openshift-console-((?:main|release-\d+\.\d+))-/.exec(
+    jobName,
+  );
+  return m?.[1] ?? null;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -110,6 +117,7 @@ export function aggregate(
     const failingBuildIds: BuildId[] = [];
     const unhealthyPRs = new Set<number>(); // PRs with ≥1 unhealthy run
     const totalPRSet = new Set<number>(); // PRs where suite ran at all
+    const branchSet = new Set<string>(); // branches where suite ran
     // For topCases: map from case name → array of failure messages
     const caseFailures = new Map<
       string,
@@ -139,6 +147,8 @@ export function aggregate(
       if (!suite.ran) continue; // entirely skipped — excluded from denominator
       appearedIn++;
       if (build.prNumber != null) totalPRSet.add(build.prNumber);
+      const branch = branchFromJobName(build.jobName);
+      if (branch) branchSet.add(branch);
 
       const hasHardFail = suite.counts.failed > 0;
       const hasFlake = suite.counts.flaked > 0;
@@ -204,6 +214,7 @@ export function aggregate(
       distinctPRs: unhealthyPRs.size,
       totalPRs: totalPRSet.size,
       cells,
+      branches: [...branchSet].sort(),
     });
   }
 

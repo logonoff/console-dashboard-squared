@@ -53,10 +53,26 @@ export function useRunAnalysis(): UseRunAnalysisResult {
       setError(null);
       setProgress({ done: 0, total: builds.length });
 
-      // Split builds into batches
-      const batches: Build[][] = [];
-      for (let i = 0; i < builds.length; i += BATCH_SIZE) {
-        batches.push(builds.slice(i, i + BATCH_SIZE));
+      // Group builds by their jobName so each batch hits the right catalog entry.
+      // In single-branch mode all builds share the same jobName — equivalent to before.
+      // In aggregate mode builds from different branches go to their own job endpoint.
+      const buildsByJob = new Map<string, Build[]>();
+      for (const build of builds) {
+        const jn = build.jobName || job.name;
+        const group = buildsByJob.get(jn) ?? [];
+        group.push(build);
+        buildsByJob.set(jn, group);
+      }
+
+      interface Batch {
+        jobName: string;
+        builds: Build[];
+      }
+      const batches: Batch[] = [];
+      for (const [jobName, jobBuilds] of buildsByJob) {
+        for (let i = 0; i < jobBuilds.length; i += BATCH_SIZE) {
+          batches.push({ jobName, builds: jobBuilds.slice(i, i + BATCH_SIZE) });
+        }
       }
 
       const allRuns: RunResult[] = [];
@@ -68,12 +84,13 @@ export function useRunAnalysis(): UseRunAnalysisResult {
         async function worker(): Promise<void> {
           while (batchIdx < batches.length) {
             if (cancelRef.current) return;
-            const batch = batches[batchIdx++];
+            const { jobName: batchJobName, builds: batch } =
+              batches[batchIdx++];
             const res = await fetch("/api/analyze", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                job: job.name,
+                job: batchJobName,
                 // Send the full build objects so the server doesn't need the
                 // cache to resolve objectPrefix — Vercel instances are ephemeral
                 // and the /api/runs cache may not be shared with /api/analyze.
@@ -89,7 +106,7 @@ export function useRunAnalysis(): UseRunAnalysisResult {
                   prAuthor: b.prAuthor,
                   baseRef: b.baseRef,
                   spyglassUrl: b.spyglassUrl,
-                  jobName: job.name,
+                  jobName: batchJobName,
                 })),
                 force,
               }),
