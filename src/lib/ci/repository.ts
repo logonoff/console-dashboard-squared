@@ -34,19 +34,12 @@ export const REPOSITORIES: Record<string, Repository> = {
 };
 
 /**
- * Return the active repository config.
- * Server-side only — reads CI_REPO environment variable.
- * Defaults to "openshift/console" for backward compatibility.
+ * Look up a repository by its slug (e.g. "openshift/console").
+ * Returns null if the slug is not in REPOSITORIES.
  */
-export function getRepository(): Repository {
-  const slug = process.env.CI_REPO ?? "openshift/console";
-  const r = REPOSITORIES[slug];
-  if (!r) {
-    throw new Error(
-      `Unknown repository "${slug}". Add it to REPOSITORIES in src/lib/ci/repository.ts`,
-    );
-  }
-  return r;
+export function parseRepoParam(slug: string | null): Repository | null {
+  if (!slug) return null;
+  return REPOSITORIES[slug] ?? null;
 }
 
 // ---------------------------------------------------------------------------

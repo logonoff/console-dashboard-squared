@@ -2,15 +2,21 @@ import { getCache } from "@/lib/cache";
 import { hourBucket, keys, TTL } from "@/lib/cache/keys";
 import { fetchCatalog } from "@/lib/ci/catalog";
 import { fetchBuildsInWindow } from "@/lib/ci/prow";
-import { getRepository, jobNameRE } from "@/lib/ci/repository";
+import { jobNameRE, parseRepoParam } from "@/lib/ci/repository";
 
 export const maxDuration = 30;
 
 /** Validate that a job name is in the catalog to prevent SSRF via prow URL. */
-async function isKnownJob(jobName: string): Promise<boolean> {
-  const cache = getCache();
-  const branches = await cache.getOrLoad(keys.catalog(), TTL.CATALOG, () =>
-    fetchCatalog(),
+async function isKnownJob(
+  jobName: string,
+  repoSlug: string,
+  cache: ReturnType<typeof getCache>,
+  repo: NonNullable<ReturnType<typeof parseRepoParam>>,
+): Promise<boolean> {
+  const branches = await cache.getOrLoad(
+    keys.catalog(repoSlug),
+    TTL.CATALOG,
+    () => fetchCatalog(repo),
   );
   return branches.some((b) => b.jobs.some((j) => j.name === jobName));
 }
@@ -24,11 +30,22 @@ export async function GET(req: Request) {
   );
   const force = url.searchParams.get("force") === "1";
 
-  if (!jobNameRE(getRepository()).test(jobName)) {
+  const repoSlug = url.searchParams.get("repo") ?? "";
+  const repo = parseRepoParam(repoSlug);
+  if (!repo) {
+    return Response.json(
+      { error: `Unknown repo "${repoSlug}"` },
+      { status: 400 },
+    );
+  }
+
+  if (!jobNameRE(repo).test(jobName)) {
     return Response.json({ error: "Invalid job name" }, { status: 400 });
   }
 
-  if (!(await isKnownJob(jobName))) {
+  const cache = getCache();
+
+  if (!(await isKnownJob(jobName, repo.repo, cache, repo))) {
     return Response.json({ error: `Unknown job: ${jobName}` }, { status: 400 });
   }
 
@@ -36,7 +53,6 @@ export async function GET(req: Request) {
   const cutoffMs = nowMs - days * 24 * 60 * 60 * 1000;
   const bucket = hourBucket(cutoffMs);
 
-  const cache = getCache();
   try {
     const result = await cache.getOrLoad(
       keys.runs(jobName, days, bucket),

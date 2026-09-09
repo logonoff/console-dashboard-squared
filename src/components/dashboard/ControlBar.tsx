@@ -19,6 +19,7 @@ import {
 import { RhUiRefreshIcon } from "@patternfly/react-icons";
 import { useState } from "react";
 import { AGGREGATE_BRANCH } from "@/lib/ci/constants";
+import type { Repository } from "@/lib/ci/repository";
 import type { BranchEntry, JobRef } from "@/lib/ci/types";
 
 export type MetricKey = "unhealthyRate" | "failureRate" | "flakeRate";
@@ -26,6 +27,9 @@ export type ViewKey = "matrix" | "grid" | "table";
 export { AGGREGATE_BRANCH };
 
 interface Props {
+  repositories: Repository[];
+  selectedRepo: Repository;
+  onRepoChange: (r: Repository) => void;
   branches: BranchEntry[];
   selectedBranch: string | null;
   onBranchChange: (branch: string) => void;
@@ -50,6 +54,48 @@ interface Props {
   hasAnalysis: boolean;
   onExportCsv: () => void;
   onBulkPrompt: () => void;
+}
+
+function RepoSelect({
+  repositories,
+  value,
+  onChange,
+}: {
+  repositories: Repository[];
+  value: Repository;
+  onChange: (r: Repository) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Select
+      isOpen={open}
+      onOpenChange={setOpen}
+      selected={value.repo}
+      onSelect={(_e, v) => {
+        const repo = repositories.find((r) => r.repo === v);
+        if (repo) onChange(repo);
+        setOpen(false);
+      }}
+      toggle={(ref) => (
+        <MenuToggle
+          ref={ref}
+          onClick={() => setOpen(!open)}
+          isExpanded={open}
+          style={{ minWidth: 160 }}
+        >
+          {value.name}
+        </MenuToggle>
+      )}
+    >
+      <SelectList>
+        {repositories.map((r) => (
+          <SelectOption key={r.repo} value={r.repo} description={r.repo}>
+            {r.name}
+          </SelectOption>
+        ))}
+      </SelectList>
+    </Select>
+  );
 }
 
 function BranchSelect({
@@ -201,6 +247,9 @@ function WindowSelect({
 }
 
 export function ControlBar({
+  repositories,
+  selectedRepo,
+  onRepoChange,
   branches,
   selectedBranch,
   onBranchChange,
@@ -230,6 +279,13 @@ export function ControlBar({
     <Toolbar>
       <ToolbarContent>
         <ToolbarGroup>
+          <ToolbarItem>
+            <RepoSelect
+              repositories={repositories}
+              value={selectedRepo}
+              onChange={onRepoChange}
+            />
+          </ToolbarItem>
           <ToolbarItem>
             <BranchSelect
               branches={branches}

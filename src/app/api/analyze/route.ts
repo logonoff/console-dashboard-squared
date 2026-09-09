@@ -3,7 +3,7 @@ import { keys, TTL } from "@/lib/cache/keys";
 import { analyzeBuild } from "@/lib/ci/analyze";
 import { fetchCatalog } from "@/lib/ci/catalog";
 import { pool } from "@/lib/ci/concurrency";
-import { getRepository, jobNameRE, objectPrefixRE } from "@/lib/ci/repository";
+import { jobNameRE, objectPrefixRE, parseRepoParam } from "@/lib/ci/repository";
 import type { Build, BuildId, RunResult } from "@/lib/ci/types";
 
 export const maxDuration = 60;
@@ -12,21 +12,24 @@ const BATCH_CAP = Number(process.env.CI_ANALYZE_BATCH ?? "8");
 const CONCURRENCY = Number(process.env.CI_MAX_CONCURRENCY ?? "6");
 const BUILD_ID_RE = /^\d{15,25}$/;
 
-const _repo = getRepository();
-const JOB_NAME_RE = jobNameRE(_repo);
-const OBJECT_PREFIX_RE = objectPrefixRE(_repo);
-
 /** Validate job name is in the catalog (SSRF guard). */
-async function validateJob(jobName: string): Promise<boolean> {
-  const cache = getCache();
-  const branches = await cache.getOrLoad(keys.catalog(), TTL.CATALOG, () =>
-    fetchCatalog(),
+async function validateJob(
+  jobName: string,
+  repoSlug: string,
+  cache: ReturnType<typeof getCache>,
+  repo: NonNullable<ReturnType<typeof parseRepoParam>>,
+): Promise<boolean> {
+  const branches = await cache.getOrLoad(
+    keys.catalog(repoSlug),
+    TTL.CATALOG,
+    () => fetchCatalog(repo),
   );
   return branches.some((b) => b.jobs.some((j) => j.name === jobName));
 }
 
 export async function POST(req: Request) {
   let body: {
+    repo?: string;
     job?: string;
     builds?: unknown[];
     force?: boolean;
@@ -37,7 +40,23 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { job: jobName = "", builds = [], force = false } = body;
+  const {
+    repo: repoSlug = "",
+    job: jobName = "",
+    builds = [],
+    force = false,
+  } = body;
+
+  const repo = parseRepoParam(repoSlug);
+  if (!repo) {
+    return Response.json(
+      { error: `Unknown repo "${repoSlug}"` },
+      { status: 400 },
+    );
+  }
+
+  const JOB_NAME_RE = jobNameRE(repo);
+  const OBJECT_PREFIX_RE = objectPrefixRE(repo);
 
   // Validate job name structure
   if (!JOB_NAME_RE.test(jobName)) {
@@ -88,12 +107,12 @@ export async function POST(req: Request) {
     });
   }
 
+  const cache = getCache();
+
   // SSRF guard — validate the job name against the known catalog
-  if (!(await validateJob(jobName))) {
+  if (!(await validateJob(jobName, repo.repo, cache, repo))) {
     return Response.json({ error: `Unknown job: ${jobName}` }, { status: 400 });
   }
-
-  const cache = getCache();
 
   const tasks = validatedBuilds.map((build) => async (): Promise<RunResult> => {
     // Return cached result for immutable terminal builds

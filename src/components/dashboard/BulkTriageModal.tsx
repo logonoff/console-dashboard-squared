@@ -40,14 +40,17 @@ export function BulkTriageModal({
 
   const apiUrl = useMemo(() => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const params = new URLSearchParams({ days: String(analysis.windowDays) });
+    const params = new URLSearchParams({
+      repo: repo.repo,
+      days: String(analysis.windowDays),
+    });
     if (analysis.job.branch === AGGREGATE_BRANCH) {
       params.set("suffix", analysis.job.suffix);
     } else {
       params.set("job", analysis.job.name);
     }
     return `${origin}/api/bulk-prompt?${params}`;
-  }, [analysis]);
+  }, [analysis, repo.repo]);
 
   return (
     <Modal

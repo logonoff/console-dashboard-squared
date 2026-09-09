@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Repository } from "@/lib/ci/repository";
 import type { BranchEntry, JobRef } from "@/lib/ci/types";
 
 export interface CatalogState {
@@ -9,7 +10,7 @@ export interface CatalogState {
   error: string | null;
 }
 
-export function useCatalog(): CatalogState {
+export function useCatalog(repo: Repository): CatalogState {
   const [branches, setBranches] = useState<BranchEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +18,7 @@ export function useCatalog(): CatalogState {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetch("/api/branches")
+    fetch(`/api/branches?repo=${encodeURIComponent(repo.repo)}`)
       .then((r) => r.json())
       .then((data) => {
         if (!cancelled) {
@@ -34,12 +35,15 @@ export function useCatalog(): CatalogState {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [repo.repo]);
 
   return { branches, loading, error };
 }
 
-export function useJobs(branch: string | null): {
+export function useJobs(
+  branch: string | null,
+  repo: Repository,
+): {
   jobs: JobRef[];
   loading: boolean;
   error: string | null;
@@ -55,7 +59,9 @@ export function useJobs(branch: string | null): {
     }
     let cancelled = false;
     setLoading(true);
-    fetch(`/api/jobs?branch=${encodeURIComponent(branch)}`)
+    fetch(
+      `/api/jobs?branch=${encodeURIComponent(branch)}&repo=${encodeURIComponent(repo.repo)}`,
+    )
       .then((r) => r.json())
       .then((data) => {
         if (!cancelled) {
@@ -72,7 +78,7 @@ export function useJobs(branch: string | null): {
     return () => {
       cancelled = true;
     };
-  }, [branch]);
+  }, [branch, repo.repo]);
 
   return { jobs, loading, error };
 }

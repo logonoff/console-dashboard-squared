@@ -5,6 +5,7 @@
  * Intended for programmatic use (Claude skills, scripts, CI automation).
  *
  * Query parameters:
+ *   repo   Repository slug (required). e.g. openshift/console
  *   job    Full prow job name (single-branch mode).
  *          e.g. pull-ci-openshift-console-release-5.0-e2e-gcp-console
  *   suffix Job suffix common to all branches (aggregate mode).
@@ -17,10 +18,10 @@
  * Returns text/markdown on success.
  *
  * Example (single branch):
- *   curl "http://localhost:3000/api/bulk-prompt?job=pull-ci-openshift-console-release-5.0-e2e-gcp-console&days=14"
+ *   curl "http://localhost:3000/api/bulk-prompt?repo=openshift/console&job=pull-ci-openshift-console-release-5.0-e2e-gcp-console&days=14"
  *
  * Example (aggregate):
- *   curl "http://localhost:3000/api/bulk-prompt?suffix=e2e-gcp-console&days=14"
+ *   curl "http://localhost:3000/api/bulk-prompt?repo=openshift/console&suffix=e2e-gcp-console&days=14"
  */
 
 import { getCache } from "@/lib/cache";
@@ -34,8 +35,8 @@ import { resolveDevVersion } from "@/lib/ci/devVersion";
 import { fetchBuildsInWindow } from "@/lib/ci/prow";
 import {
   aggregateJobPattern,
-  getRepository,
   jobNameRE,
+  parseRepoParam,
 } from "@/lib/ci/repository";
 import type { Build, JobRef, RunResult } from "@/lib/ci/types";
 import { generateBulkTriagePrompt } from "@/lib/jira/bulkPrompt";
@@ -55,6 +56,15 @@ export async function GET(req: Request) {
   );
   const force = url.searchParams.get("force") === "1";
 
+  const repoSlug = url.searchParams.get("repo") ?? "";
+  const repo = parseRepoParam(repoSlug);
+  if (!repo) {
+    return Response.json(
+      { error: `Unknown repo "${repoSlug}"` },
+      { status: 400 },
+    );
+  }
+
   if (!jobParam && !suffixParam) {
     return Response.json(
       { error: "Provide either ?job=<full-job-name> or ?suffix=<job-suffix>" },
@@ -68,10 +78,11 @@ export async function GET(req: Request) {
     );
   }
 
-  const repo = getRepository();
   const cache = getCache();
-  const branches = await cache.getOrLoad(keys.catalog(), TTL.CATALOG, () =>
-    fetchCatalog(),
+  const branches = await cache.getOrLoad(
+    keys.catalog(repo.repo),
+    TTL.CATALOG,
+    () => fetchCatalog(repo),
   );
 
   let jobRefs: JobRef[];
@@ -97,7 +108,7 @@ export async function GET(req: Request) {
       lastRunIso: null,
     };
   } else {
-    if (!jobNameRE(repo).test(jobParam!)) {
+    if (!jobNameRE(repo).test(jobParam ?? "")) {
       return Response.json({ error: "Invalid job name" }, { status: 400 });
     }
     const found = branches
@@ -139,9 +150,9 @@ export async function GET(req: Request) {
   const analysis = aggregate(effectiveJob, allBuilds, runs, days, repo);
 
   const devVersion = await cache.getOrLoad(
-    keys.devVersion(),
+    keys.devVersion(repo.repo),
     TTL.DEV_VERSION,
-    () => resolveDevVersion(),
+    () => resolveDevVersion(repo),
   );
 
   const prompt = generateBulkTriagePrompt(analysis, devVersion, repo);

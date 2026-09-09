@@ -1,6 +1,7 @@
 import { getCache } from "@/lib/cache";
 import { keys, TTL } from "@/lib/cache/keys";
 import { fetchCatalog, fetchJobLastRun } from "@/lib/ci/catalog";
+import { parseRepoParam } from "@/lib/ci/repository";
 
 export const maxDuration = 15;
 
@@ -11,9 +12,20 @@ export async function GET(req: Request) {
     return Response.json({ error: "branch param required" }, { status: 400 });
   }
 
+  const repoSlug = url.searchParams.get("repo") ?? "";
+  const repo = parseRepoParam(repoSlug);
+  if (!repo) {
+    return Response.json(
+      { error: `Unknown repo "${repoSlug}"` },
+      { status: 400 },
+    );
+  }
+
   const cache = getCache();
-  const branches = await cache.getOrLoad(keys.catalog(), TTL.CATALOG, () =>
-    fetchCatalog(),
+  const branches = await cache.getOrLoad(
+    keys.catalog(repo.repo),
+    TTL.CATALOG,
+    () => fetchCatalog(repo),
   );
 
   const entry = branches.find((b) => b.id === branch);
