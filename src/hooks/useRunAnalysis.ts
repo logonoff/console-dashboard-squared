@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { aggregate } from "@/lib/ci/aggregate";
+import type { Repository } from "@/lib/ci/repository";
 import type { Analysis, Build, JobRef, RunResult } from "@/lib/ci/types";
 
 const CLIENT_CONCURRENCY = Number(
@@ -27,6 +28,7 @@ export interface UseRunAnalysisResult {
     job: JobRef,
     builds: Build[],
     windowDays: number,
+    repo: Repository,
     force?: boolean,
   ) => void;
   cancel: () => void;
@@ -47,7 +49,13 @@ export function useRunAnalysis(): UseRunAnalysisResult {
   }, []);
 
   const run = useCallback(
-    async (job: JobRef, builds: Build[], windowDays: number, force = false) => {
+    async (
+      job: JobRef,
+      builds: Build[],
+      windowDays: number,
+      repo: Repository,
+      force = false,
+    ) => {
       cancelRef.current = false;
       setLoading(true);
       setError(null);
@@ -130,7 +138,7 @@ export function useRunAnalysis(): UseRunAnalysisResult {
         await Promise.all(workers);
 
         if (!cancelRef.current) {
-          setAnalysis(aggregate(job, builds, allRuns, windowDays));
+          setAnalysis(aggregate(job, builds, allRuns, windowDays, repo));
         }
       } catch (err) {
         if (!cancelRef.current) {

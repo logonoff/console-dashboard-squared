@@ -7,8 +7,7 @@ const BUCKET = "test-platform-results";
 const GCS_API = `https://storage.googleapis.com/storage/v1/b/${BUCKET}/o`;
 const GCS_MEDIA = `https://storage.googleapis.com/${BUCKET}`;
 
-const USER_AGENT =
-  "console-dashboard-squared/1.0 (github.com/openshift/console)";
+const USER_AGENT = "console-dashboard-squared/1.0";
 const FETCH_TIMEOUT_MS = 20_000;
 const MAX_RETRIES = 3;
 const MAX_RESPONSE_BYTES = 25 * 1024 * 1024; // 25 MB hard cap

@@ -1,6 +1,6 @@
-# CI Watcher — OpenShift Console prow junit failure heatmap
+# CI Watcher — OpenShift prow junit failure heatmap
 
-Read-only dashboard for analyzing flaky and failing junit test suites across OpenShift CI prow runs for the `openshift/console` repository.
+Read-only dashboard for analyzing flaky and failing junit test suites across OpenShift CI prow runs for an OpenShift repository.
 
 ## What it does
 

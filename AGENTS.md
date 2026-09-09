@@ -10,9 +10,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ---
 
-# CI Watcher — OpenShift Console prow junit failure heatmap
+# CI Watcher — OpenShift prow junit failure heatmap
 
-Read-only dashboard for analyzing flaky/failing junit test suites across OpenShift CI prow runs for the `openshift/console` repository.
+Read-only dashboard for analyzing flaky/failing junit test suites across OpenShift CI prow runs for a given `openshift` repository using Prow.
 
 ## What it does
 

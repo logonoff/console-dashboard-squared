@@ -4,7 +4,10 @@ import { describe, expect, it } from "vitest";
 import { aggregate } from "./aggregate";
 import { JUNIT_RE } from "./artifacts";
 import { parseJunit } from "./junit";
+import { REPOSITORIES } from "./repository";
 import type { Build, JobRef, RunResult, SuiteResult } from "./types";
+
+const TEST_REPO = REPOSITORIES["openshift/console"];
 
 // ---------------------------------------------------------------------------
 // objectPrefix validation regex (mirrors src/app/api/analyze/route.ts)
@@ -82,9 +85,9 @@ describe("JUNIT_RE", () => {
     ).toBe(true);
   });
   it("matches eslint.junit.xml (*.junit.xml convention)", () => {
-    expect(
-      JUNIT_RE.test("artifacts/test/artifacts/eslint.junit.xml"),
-    ).toBe(true);
+    expect(JUNIT_RE.test("artifacts/test/artifacts/eslint.junit.xml")).toBe(
+      true,
+    );
   });
   it("matches gherkin-lint.junit.xml (hyphen in stem)", () => {
     expect(
@@ -93,15 +96,13 @@ describe("JUNIT_RE", () => {
   });
   it("matches 'duplicated deps.junit.xml' (spaces in filename)", () => {
     expect(
-      JUNIT_RE.test(
-        "artifacts/test/artifacts/duplicated deps.junit.xml",
-      ),
+      JUNIT_RE.test("artifacts/test/artifacts/duplicated deps.junit.xml"),
     ).toBe(true);
   });
   it("matches eslint.junit.xml (*.junit.xml — frontend job convention)", () => {
-    expect(
-      JUNIT_RE.test("artifacts/test/artifacts/eslint.junit.xml"),
-    ).toBe(true);
+    expect(JUNIT_RE.test("artifacts/test/artifacts/eslint.junit.xml")).toBe(
+      true,
+    );
   });
   it("matches gherkin-lint.junit.xml", () => {
     expect(
@@ -366,7 +367,7 @@ describe("aggregate — SuiteStat.branches", () => {
     const job = makeJob("release-5.0", SUFFIX);
     const builds = [makeBuild("1", JOB_50)];
     const runs = [makeRun("1", [makeSuite("suite-a")])];
-    const analysis = aggregate(job, builds, runs, 14);
+    const analysis = aggregate(job, builds, runs, 14, TEST_REPO);
     const suite = analysis.suites.find((s) => s.name === "suite-a");
     expect(suite?.branches).toEqual(["release-5.0"]);
   });
@@ -379,7 +380,7 @@ describe("aggregate — SuiteStat.branches", () => {
       makeBuild("3", JOB_MAIN),
     ];
     const runs = builds.map((b) => makeRun(b.id, [makeSuite("suite-a")]));
-    const analysis = aggregate(job, builds, runs, 14);
+    const analysis = aggregate(job, builds, runs, 14, TEST_REPO);
     const suite = analysis.suites.find((s) => s.name === "suite-a");
     expect(suite?.branches).toEqual(["main", "release-5.0", "release-5.1"]);
   });
@@ -391,7 +392,7 @@ describe("aggregate — SuiteStat.branches", () => {
       makeRun("1", [makeSuite("suite-a")]),
       makeRun("2", [makeSuite("suite-b")]), // suite-a not present in release-5.1
     ];
-    const analysis = aggregate(job, builds, runs, 14);
+    const analysis = aggregate(job, builds, runs, 14, TEST_REPO);
     const suite = analysis.suites.find((s) => s.name === "suite-a");
     expect(suite?.branches).toEqual(["release-5.0"]);
   });
@@ -403,7 +404,7 @@ describe("aggregate — SuiteStat.branches", () => {
       makeRun("1", [makeSuite("suite-a", true)]), // ran in 5.0
       makeRun("2", [makeSuite("suite-a", false)]), // all-skipped in 5.1
     ];
-    const analysis = aggregate(job, builds, runs, 14);
+    const analysis = aggregate(job, builds, runs, 14, TEST_REPO);
     const suite = analysis.suites.find((s) => s.name === "suite-a");
     expect(suite?.branches).toEqual(["release-5.0"]);
   });
@@ -412,7 +413,7 @@ describe("aggregate — SuiteStat.branches", () => {
     const job = makeJob("release-5.0", SUFFIX);
     const builds = [makeBuild("1", "unknown-job-format")];
     const runs = [makeRun("1", [makeSuite("suite-a")])];
-    const analysis = aggregate(job, builds, runs, 14);
+    const analysis = aggregate(job, builds, runs, 14, TEST_REPO);
     const suite = analysis.suites.find((s) => s.name === "suite-a");
     expect(suite?.branches).toEqual([]);
   });
@@ -426,7 +427,7 @@ describe("aggregate — SuiteStat.branches", () => {
       makeBuild("3", JOB_50),
     ];
     const runs = builds.map((b) => makeRun(b.id, [makeSuite("suite-a")]));
-    const analysis = aggregate(job, builds, runs, 14);
+    const analysis = aggregate(job, builds, runs, 14, TEST_REPO);
     const suite = analysis.suites.find((s) => s.name === "suite-a");
     expect(suite?.branches).toEqual(["main", "release-5.0", "release-5.1"]);
   });
@@ -436,7 +437,7 @@ describe("aggregate — SuiteStat.branches", () => {
     const job = makeJob("release-3.11", SUFFIX);
     const builds = [makeBuild("1", job311)];
     const runs = [makeRun("1", [makeSuite("suite-a")])];
-    const analysis = aggregate(job, builds, runs, 14);
+    const analysis = aggregate(job, builds, runs, 14, TEST_REPO);
     const suite = analysis.suites.find((s) => s.name === "suite-a");
     expect(suite?.branches).toEqual(["release-3.11"]);
   });
