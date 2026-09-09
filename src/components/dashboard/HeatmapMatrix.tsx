@@ -34,7 +34,7 @@ export function HeatmapMatrix({
 
   const visible = suites
     .filter((s) => {
-      if (!showLowSample && s.appearedIn < 3) return false;
+      if (!showLowSample && s.appearedIn < 3 && s.distinctPRs < 2) return false;
       if (!showCiOperator && s.origin === "ci-operator") return false;
       if (
         suiteFilter &&
