@@ -93,7 +93,11 @@ export function generateBulkTriagePrompt(
           seen.add(branch);
           const ver =
             branchToJiraVersion(branch, devVersion) ?? "⚠️ resolve manually";
-          const short = ver.startsWith("⚠️") ? "⚠️" : ver.replace(/\.\d+$/, "");
+          const short = ver.startsWith("⚠️")
+            ? "⚠️"
+            : ver.endsWith(".z")
+              ? ver.slice(0, -2) // "5.0.z" → "5.0"
+              : ver.replace(/\.\d+$/, ""); // "5.1.0" → "5.1"
           branchVersionRows.push({
             branch,
             abbr: abbrev(branch),
