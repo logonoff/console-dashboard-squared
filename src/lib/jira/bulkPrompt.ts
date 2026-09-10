@@ -74,50 +74,102 @@ export function generateBulkTriagePrompt(
     })
     .join("\n");
 
-  const versionAggregateNote = isAggregate
-    ? `\n> **Aggregate mode**: determine the JIRA version per suite from its Branch(es) column:
-> - \`main\` → current dev version + \`.0\` (check \`/api/dev-version\` or the dashboard header)
-> - \`release-X.Y\` at or above dev version → \`X.Y.0\`
-> - \`release-X.Y\` below dev version → \`X.Y.z\`\n`
-    : "";
+  // Embedded version mapping — no external calls needed
+  const mainJiraVer = branchToJiraVersion("main", devVersion);
 
-  const createTemplate = JSON.stringify(
-    {
-      fields: {
-        project: { id: JIRA.project.id },
-        issuetype: { id: JIRA.issueType.bug.id },
-        reporter: { id: "<resolve current user accountId — once per session>" },
-        summary: `[ci-watcher]: ${isAggregate ? "<branch>" : job.branch} - <Suite name> has <Failure %>% failure rate`,
-        components: [{ id: component.id }],
-        versions: [
-          { name: isAggregate ? "<version for this branch>" : jiraVer },
-        ],
-        [JIRA.fields.targetVersion]: [
-          { name: isAggregate ? "<version for this branch>" : jiraVer },
-        ],
-        labels: [JIRA.labels.automated, JIRA.labels.ciWatch],
-      },
-    },
-    null,
-    2,
-  );
+  interface BranchVersionRow {
+    branch: string;
+    abbr: string;
+    jiraVer: string;
+    jiraVerShort: string;
+    jiraVerZ: string;
+  }
+  const branchVersionRows: BranchVersionRow[] = [];
+  if (isAggregate) {
+    const seen = new Set<string>();
+    for (const suite of actionable) {
+      for (const branch of suite.branches) {
+        if (!seen.has(branch)) {
+          seen.add(branch);
+          const ver =
+            branchToJiraVersion(branch, devVersion) ?? "⚠️ resolve manually";
+          const short = ver.startsWith("⚠️") ? "⚠️" : ver.replace(/\.\d+$/, "");
+          branchVersionRows.push({
+            branch,
+            abbr: abbrev(branch),
+            jiraVer: ver,
+            jiraVerShort: short,
+            jiraVerZ: short.startsWith("⚠️") ? "⚠️" : `${short}.z`,
+          });
+        }
+      }
+    }
+    branchVersionRows.sort((a, b) => {
+      if (a.branch === "main") return -1;
+      if (b.branch === "main") return 1;
+      return b.branch.localeCompare(a.branch);
+    });
+  }
+
+  const branchVersionTableMd =
+    isAggregate && branchVersionRows.length > 0
+      ? `\n### Branch → JIRA version mapping\n\n` +
+        `Current in-development version: \`${mainJiraVer ?? "⚠️ unknown"}\`\n\n` +
+        `| Branch | Abbr | \`versions\` / \`${JIRA.fields.targetVersion}\` | Short | z-stream |\n` +
+        `| -- | -- | -- | -- | -- |\n` +
+        branchVersionRows
+          .map(
+            (r) =>
+              `| \`${r.branch}\` | ${r.abbr} | \`${r.jiraVer}\` | \`${r.jiraVerShort}\` | \`${r.jiraVerZ}\` |`,
+          )
+          .join("\n") +
+        "\n"
+      : "";
 
   const broadJql =
     `project = OCPBUGS AND component = "${component.name}"` +
     ` AND labels in (ci-watch, automated, ci-watcher) AND created >= -60d ORDER BY created DESC`;
 
-  const narrowJqlTemplate =
-    `project = OCPBUGS AND issuetype = Bug AND component = "${component.name}"\n` +
-    `  AND text ~ "<basename of suite path>"\n` +
-    (isAggregate
-      ? `  AND affectedVersion in ("<version>", "<versionShort>", "<versionZ>")\n`
-      : `  AND affectedVersion in ("${jiraVer}", "${versionShort}", "${versionZ}")\n`) +
-    `  AND status not in (Closed, "Release Pending") ORDER BY created DESC`;
+  const narrowJqlResolved = isAggregate
+    ? `project = OCPBUGS AND issuetype = Bug AND component = "${component.name}"\n` +
+      `  AND text ~ "<suite-basename>"\n` +
+      `  AND affectedVersion in ("<JIRA_VER>", "<JIRA_VER_SHORT>", "<JIRA_VER_Z>")\n` +
+      `  AND status not in (Closed, "Release Pending") ORDER BY created DESC\n\n` +
+      `Substitute <suite-basename> with the filename portion of the suite path (e.g., \`alertmanager.spec.ts\`).\n` +
+      `Substitute <JIRA_VER>, <JIRA_VER_SHORT>, <JIRA_VER_Z> from the Branch → JIRA version mapping above,\n` +
+      `using the suite's primary branch (see multi-branch naming rule in Decision rules).`
+    : `project = OCPBUGS AND issuetype = Bug AND component = "${component.name}"\n` +
+      `  AND text ~ "<suite-basename>"\n` +
+      `  AND affectedVersion in ("${jiraVer}", "${versionShort}", "${versionZ}")\n` +
+      `  AND status not in (Closed, "Release Pending") ORDER BY created DESC`;
+
+  const additionalFields = JSON.stringify(
+    {
+      reporter: {
+        accountId: "<resolve with atlassianUserInfo — once per session>",
+      },
+      components: [{ name: component.name }],
+      versions: [
+        { name: isAggregate ? "<JIRA_VER from mapping above>" : jiraVer },
+      ],
+      [JIRA.fields.targetVersion]: [
+        { name: isAggregate ? "<JIRA_VER from mapping above>" : jiraVer },
+      ],
+      [JIRA.fields.releaseBlocker]: { value: "Rejected" },
+      labels: [JIRA.labels.automated, JIRA.labels.ciWatch],
+    },
+    null,
+    2,
+  );
+
+  const summaryTemplate = isAggregate
+    ? `[ci-watcher]: <primary-branch> - <Suite name> has <Failure %>% failure rate`
+    : `[ci-watcher]: ${job.branch} - <Suite name> has <Failure %>% failure rate`;
 
   return `# OCPBUGS bulk triage — ${repo.name} CI watcher
 
-You are triaging **${actionable.length}** ${repo.name} CI test suite(s) that have an unhealthy rate ≥ ${UNHEALTHY_THRESHOLD * 100}%.
-Process each suite in order. Use ONLY the data provided. Do not invent root causes or guess at fixes.
+You are triaging **${actionable.length}** ${repo.name} CI test suite(s) with an unhealthy rate ≥ ${UNHEALTHY_THRESHOLD * 100}%.
+Use ONLY the data provided. Do not invent root causes or guess at fixes.
 
 ## Context (generated ${nowIso})
 
@@ -132,7 +184,7 @@ Process each suite in order. Use ONLY the data provided. Do not invent root caus
 | Builds excluded (pending/aborted/no artifact) | ${counts.excluded + counts.noArtifact} |
 | Target JIRA version | \`${versionStr}\` |
 | Suites to process (unhealthy ≥ ${UNHEALTHY_THRESHOLD * 100}%) | **${actionable.length}** of ${analysis.suites.length} total |
-${versionAggregateNote}
+${branchVersionTableMd}
 ## Suite data (sorted by impact, highest unhealthy rate first)
 
 | # | Suite | Branch(es) | Unhealthy % | Failure % | Flake % | Runs | Failed | Flaked | dptools |
@@ -141,11 +193,35 @@ ${tableRows || "_(no suites meet the threshold)_"}
 
 ---
 
+## Decision rules
+
+### Multi-branch naming — primary branch and summary token
+
+Each suite's Branch(es) column may list multiple branches. Apply these rules in order:
+
+1. If \`main\` is in the list → primary branch = \`main\`.
+2. Otherwise → primary branch = the highest-numbered release branch (e.g., \`5.0\` beats \`4.18\`; compare as integer tuples).
+
+Use the primary branch as the \`<branch>\` token in the summary and to look up the JIRA version from the mapping above.
+
+### What counts as a match (dedup)
+
+An existing bug **matches** this suite if ALL of:
+- Status is **not** Closed or Release Pending.
+- The bug's summary or description contains the **exact basename** of the suite path (e.g., \`alertmanager.spec.ts\`).
+- The basename is not a different-extension predecessor: \`.cy.ts\`, \`.feature\`, or other suffixes are **not** the same suite as the corresponding \`.spec.ts\`. A bug about \`operator-uninstall.cy.ts\` does **not** match \`operator-uninstall.spec.ts\`.
+
+### Closed-bug policy
+
+A closed bug for the same suite does **not** suppress creation — the suite is failing again. Create a new bug.
+
+---
+
 ## Processing instructions
 
-### Step 0 — run the broad dedup check ONCE before processing any suites
+### Step 1 — broad supplementary search (run once)
 
-Run this JQL against \`${JIRA.siteUrl}\` and keep the result set in memory for the session:
+Run this JQL against \`${JIRA.siteUrl}\` before processing suites. Use the results as a quick cross-reference during Step 2 — it is not the authoritative dedup signal.
 
 \`\`\`jql
 ${broadJql}
@@ -153,49 +229,85 @@ ${broadJql}
 
 ---
 
-### Step 1 — for EACH suite in the table, in order
+### Step 2 — per-suite narrow searches (no writes yet)
 
-Repeat the following sequence for every row:
-
-#### 1a. Narrow dedup check
+For every row in the suite table, run the narrow check and record whether a match was found:
 
 \`\`\`jql
-${narrowJqlTemplate}
+${narrowJqlResolved}
 \`\`\`
 
-Also scan the Step 0 broad results for any bug that mentions this suite name.
+Also note any hits from the Step 1 results that match the suite basename.
 
-**If a match is found in either check:**
-- Add a comment to the existing bug:
-  > _CI watcher update — ${nowIso.slice(0, 10)}: unhealthy \`<Unhealthy %>\`%, failure \`<Failure %>\`%, flake \`<Flake %>\`% over \`<Runs>\` runs in the last ${windowDays} days. [dptools search](\`<url>\`)_
-- Do **not** create a new bug for this suite.
-- Move to the next suite.
+Record for each suite: match found (yes/no), issue key if yes, proposed action.
 
-#### 1b. Create a new bug (only if no match found in 1a)
+---
 
-\`POST ${JIRA.siteUrl}/rest/api/3/issue\`
+### Step 3 — present plan and wait for explicit user approval
+
+After completing all searches, present this table:
+
+| # | Suite | Primary branch | JIRA version | Proposed action | Existing issue |
+| -- | -- | -- | -- | -- | -- |
+| … | … | … | … | Create new bug _or_ Add comment | \`OCPBUGS-XXXXX\` or — |
+
+**Do not create any bugs or post any comments until the user explicitly approves.**
+If they request changes, update the table and seek approval again.
+
+---
+
+### Step 4 — execute approved actions, in table order
+
+#### 4a. Existing bug found — add a comment
+
+Use \`addCommentToJiraIssue\` with cloudId \`${JIRA.cloudId}\`:
+
+> _CI watcher update — ${nowIso.slice(0, 10)}: unhealthy \`<Unhealthy %>\`%, failure \`<Failure %>\`%, flake \`<Flake %>\`% over \`<Runs>\` runs in the last ${windowDays} days. [dptools search](<url>)_
+
+Do **not** create a new bug for this suite.
+
+#### 4b. No existing bug — create a new bug
+
+Use \`createJiraIssue\` with these arguments:
+
+- **cloudId**: \`${JIRA.cloudId}\`
+- **projectKey**: \`${JIRA.project.key}\`
+- **issueTypeName**: \`Bug\`
+- **summary**: \`${summaryTemplate}\`
+  - If the full summary exceeds 120 chars, use only the filename portion of the suite name (e.g., \`alertmanager.spec.ts\`).
+- **contentFormat**: \`markdown\`
+- **description**: the suite's row data from the table above, plus its dptools link, in plain markdown. State only what the CI data shows; do not editorialise.
+- **additional_fields**:
 
 \`\`\`json
-${createTemplate}
+${additionalFields}
 \`\`\`
 
 **Field notes:**
-- \`${JIRA.fields.targetVersion}\` = **Target Version** — always set to the same value as \`versions\`.
-- Summary must be exactly \`[ci-watcher]: <branch> - <suite name> has <Failure %>% failure rate\`. If the full suite name exceeds 120 chars total, use only the filename portion (e.g., \`alertmanager.spec.ts\`).
-- Description: include the suite's row data from the table above and its dptools link in ADF format. State only what the CI data shows; do not editorialise.
-- \`${JIRA.fields.releaseBlocker}\` = **Release Blocker** — leave unset unless the failure rate exceeds 80% on a blocking job.
+- \`${JIRA.fields.targetVersion}\` = **Target Version** — must equal \`versions\`.
+- \`${JIRA.fields.releaseBlocker}\` = **Release Blocker** — always \`{ "value": "Rejected" }\`.
+- Do not set priority, sprint, assignee, or fix version.
+
+---
+
+### Step 5 — final report
+
+After all actions are complete, output this table:
+
+| # | Suite | Primary branch | JIRA version | Action taken | Issue key | Notes |
+| -- | -- | -- | -- | -- | -- | -- |
+| … | … | … | … | Created / Commented / Skipped | \`OCPBUGS-XXXXX\` or — | … |
 
 ---
 
 ## Constraints (enforce for every suite)
 
 - Process suites in table order (row 1 first).
-- Do not set priority, sprint, assignee, or fix version on any created bug.
+- **Never write to JIRA without explicit user approval (Step 3).**
 - Do not link to unrelated issues.
 - Do not assert root causes.
 - Do not file more than one bug per suite.
 - Do not create bugs for suites not in the table above.
-- Required create fields for OCPBUGS: \`project\`, \`issuetype\`, \`reporter\`, \`summary\`, \`versions\`.
 - Set versions by \`{"name": …}\`, not by id — names are stable across JIRA projects.
 `;
 }

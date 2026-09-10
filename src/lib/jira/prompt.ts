@@ -121,18 +121,16 @@ export function generateBugPrompt(input: PromptInput): {
     )
     .join("\n");
 
-  const createPayload = JSON.stringify(
+  const additionalFields = JSON.stringify(
     {
-      fields: {
-        project: { id: JIRA.project.id },
-        issuetype: { id: JIRA.issueType.bug.id },
-        reporter: { id: "<resolve to the current user's accountId>" },
-        summary,
-        components: [{ id: component.id }],
-        versions: [{ name: version }],
-        [JIRA.fields.targetVersion]: [{ name: version }],
-        labels: [JIRA.labels.automated, JIRA.labels.ciWatch],
+      reporter: {
+        accountId: "<resolve with atlassianUserInfo — once per session>",
       },
+      components: [{ name: component.name }],
+      versions: [{ name: version }],
+      [JIRA.fields.targetVersion]: [{ name: version }],
+      [JIRA.fields.releaseBlocker]: { value: "Rejected" },
+      labels: [JIRA.labels.automated, JIRA.labels.ciWatch],
     },
     null,
     2,
@@ -170,10 +168,24 @@ ${sampleRunLines || "_No failing run samples available._"}
 
 ---
 
-## Step 1 — look for an existing bug. Do NOT create anything yet.
+## Decision rules
 
-Run both JQL queries against \`${JIRA.siteUrl}\`
-(cloudId \`${JIRA.cloudId}\`).
+### What counts as a match
+
+An existing bug **matches** this suite if ALL of:
+- Status is **not** Closed or Release Pending.
+- The bug's summary or description contains the **exact basename** of this suite's path: \`${suiteSearchToken}\`.
+- A different-extension predecessor (\`.cy.ts\`, \`.feature\`, etc.) is **not** a match even if named similarly.
+
+### Closed-bug policy
+
+A closed bug for the same suite does **not** suppress creation — the suite is failing again. Create a new bug.
+
+---
+
+## Step 1 — search for an existing bug. Do NOT write anything yet.
+
+Run both JQL queries against \`${JIRA.siteUrl}\` (cloudId \`${JIRA.cloudId}\`).
 
 Narrow:
 \`\`\`jql
@@ -185,36 +197,74 @@ Broad (catches differently-worded ci-watcher bugs):
 ${broadJql(component.name)}
 \`\`\`
 
-**If a match exists:** add a comment containing the Facts table and the sample run links.
-Update the summary's percentage only if it moved by more than 10 points.
-Do not open a duplicate. Stop here.
+Record what you found. Do not write anything to JIRA yet.
 
 ---
 
-## Step 2 — only if Step 1 found nothing: create the bug.
+## Step 2 — present the plan and wait for explicit user approval
 
-Summary (use exactly this string):
-\`\`\`
-${summary}
-\`\`\`
+Tell the user:
+- Whether an existing bug was found (include the issue key if so).
+- What action you propose: comment on the existing bug, or create a new bug.
+- Show the exact comment text or create arguments you intend to submit.
 
-\`POST ${JIRA.siteUrl}/rest/api/3/issue\`
+**Do not take any action until the user explicitly approves.**
+If they ask for changes, update the plan and seek approval again.
+
+---
+
+## Step 3 — execute the approved action
+
+### If Step 1 found a match — add a comment
+
+Use \`addCommentToJiraIssue\` with cloudId \`${JIRA.cloudId}\`.
+Include the Facts table and sample run links in the comment.
+Update the summary's percentage only if it moved by more than 10 points.
+Do not open a duplicate.
+
+### If Step 1 found nothing — create a new bug
+
+Use \`createJiraIssue\` with these arguments:
+
+- **cloudId**: \`${JIRA.cloudId}\`
+- **projectKey**: \`${JIRA.project.key}\`
+- **issueTypeName**: \`Bug\`
+- **summary** (use exactly):
+  \`\`\`
+  ${summary}
+  \`\`\`
+- **contentFormat**: \`markdown\`
+- **description**: the Facts table, failing-case list, sample run links, and the dptools URL in plain markdown. Keep the wording; do not editorialise.
+- **additional_fields**:
+
 \`\`\`json
-${createPayload}
+${additionalFields}
 \`\`\`
 
 Field notes:
-- \`${JIRA.fields.targetVersion}\` = **Target Version** (array of version objects). Verified on OCPBUGS-97600.
-- \`${JIRA.fields.releaseBlocker}\` = **Release Blocker**. Leave unset unless hard failure rate exceeds 80%.
-- Required create fields for OCPBUGS: \`project\`, \`issuetype\`, \`reporter\`, \`summary\`, \`versions\`.
+- \`${JIRA.fields.targetVersion}\` = **Target Version** — must equal \`versions\`. Verified on OCPBUGS-97600.
+- \`${JIRA.fields.releaseBlocker}\` = **Release Blocker** — always \`{ "value": "Rejected" }\`.
 - Set versions by \`{"name": …}\`, not by id — names are stable across projects.
-- Description: convert the Facts table, failing-case list, sample run links and the dptools URL into ADF. Keep the wording; do not editorialise.
 
-## Step 3 — do not do any of these
+---
+
+## Step 4 — final report
+
+After executing, output:
+
+| Field | Value |
+| --- | --- |
+| Action taken | Created new bug _or_ Added comment to \`OCPBUGS-XXXXX\` |
+| Issue key | \`OCPBUGS-XXXXX\` |
+| JIRA version set | … |
+| Notes | … |
+
+## Constraints
 - Do not set priority, sprint, assignee, or fix version.
 - Do not link to unrelated issues.
 - Do not assert a root cause. State only what the CI data shows.
 - Do not file more than one bug for this suite.
+- **Never write to JIRA without explicit user approval (Step 2).**
 `;
 
   return { markdown, jqlUrl: jqlUrlStr, dptoolsAlreadyLinked: false };
