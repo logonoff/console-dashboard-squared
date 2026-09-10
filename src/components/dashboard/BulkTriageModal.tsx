@@ -38,8 +38,9 @@ export function BulkTriageModal({
     (s) => s.unhealthyRate >= 0.1,
   ).length;
 
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+
   const apiUrl = useMemo(() => {
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
     const params = new URLSearchParams({
       repo: repo.repo,
       days: String(analysis.windowDays),
@@ -50,7 +51,7 @@ export function BulkTriageModal({
       params.set("job", analysis.job.name);
     }
     return `${origin}/api/bulk-prompt?${params}`;
-  }, [analysis, repo.repo]);
+  }, [analysis, repo.repo, origin]);
 
   return (
     <Modal
