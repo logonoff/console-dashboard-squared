@@ -1,9 +1,15 @@
 /**
  * GCS fetch utilities — always runs server-side in route handlers.
- * Uses only the anonymous public APIs; no credentials required.
+ *
+ * The bucket is normally public; requests go out unauthenticated unless a
+ * Google OAuth2 bearer token is available. See ./googleAuth.
  */
 
 import { USER_AGENT } from "../constants";
+import {
+  getGoogleAccessToken,
+  invalidateGoogleAccessToken,
+} from "./googleAuth";
 
 const BUCKET = "test-platform-results";
 const GCS_API = `https://storage.googleapis.com/storage/v1/b/${BUCKET}/o`;
@@ -12,6 +18,10 @@ const GCS_MEDIA = `https://storage.googleapis.com/${BUCKET}`;
 const FETCH_TIMEOUT_MS = 20_000;
 const MAX_RETRIES = 3;
 const MAX_RESPONSE_BYTES = 25 * 1024 * 1024; // 25 MB hard cap
+
+export const GCS_AUTH_HINT =
+  "This bucket is refusing the request. If it now requires authentication, set " +
+  "GOOGLE_ACCESS_TOKEN to a credential holding storage.objectViewer on it.";
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -26,17 +36,34 @@ function isRetriable(status: number): boolean {
 }
 
 async function fetchWithRetry(url: string, attempt = 0): Promise<Response> {
+  const token = await getGoogleAccessToken();
+  const headers: Record<string, string> = { "User-Agent": USER_AGENT };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
   const res = await fetch(url, {
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     redirect: "error",
-    headers: { "User-Agent": USER_AGENT },
+    headers,
   });
+
+  if (res.status === 401 && token && attempt < MAX_RETRIES - 1) {
+    // Token likely expired mid-flight — re-mint once and retry.
+    invalidateGoogleAccessToken();
+    return fetchWithRetry(url, attempt + 1);
+  }
   if (!res.ok && isRetriable(res.status) && attempt < MAX_RETRIES - 1) {
     const delay = 1_000 * 2 ** attempt + Math.random() * 500;
     await sleep(delay);
     return fetchWithRetry(url, attempt + 1);
   }
   return res;
+}
+
+function describeError(status: number, body: string): string {
+  const detail = body.slice(0, 200);
+  return status === 401 || status === 403
+    ? `HTTP ${status} — ${GCS_AUTH_HINT} ${detail}`
+    : `HTTP ${status} ${detail}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -81,7 +108,7 @@ export async function gcsListPage(opts: {
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(
-      `GCS list ${opts.prefix}: HTTP ${res.status} ${text.slice(0, 200)}`,
+      `GCS list ${opts.prefix}: ${describeError(res.status, text)}`,
     );
   }
   const json = await res.json();
@@ -127,7 +154,7 @@ export async function gcsGetText(objectPath: string): Promise<string | null> {
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(
-      `GCS get ${objectPath}: HTTP ${res.status} ${text.slice(0, 200)}`,
+      `GCS get ${objectPath}: ${describeError(res.status, text)}`,
     );
   }
   const contentLength = Number(res.headers.get("content-length") ?? 0);
@@ -154,7 +181,10 @@ export async function gcsGetBuffer(
   const res = await fetchWithRetry(url);
   if (res.status === 404) return null;
   if (!res.ok) {
-    throw new Error(`GCS get ${objectPath}: HTTP ${res.status}`);
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `GCS get ${objectPath}: ${describeError(res.status, text)}`,
+    );
   }
   const contentLength = Number(res.headers.get("content-length") ?? 0);
   if (contentLength > MAX_RESPONSE_BYTES) {

@@ -161,6 +161,23 @@ Prow HTML and GCS object downloads send no CORS headers. Everything goes through
 | `CI_ANALYZE_BATCH` | `8` | Max build IDs per `/api/analyze` POST |
 | `CI_CLIENT_CONCURRENCY` | `4` | Parallel `/api/analyze` calls from the browser |
 | `GITHUB_TOKEN` | — | Raises GitHub unauthenticated 60 req/hr limit |
+| `GOOGLE_ACCESS_TOKEN` | — | Google OAuth2 bearer token for GCS. Falls back to `gcloud auth print-access-token` when unset. |
+
+### Optional GCS authentication
+
+`test-platform-results` is normally readable anonymously, so no credentials are needed.
+[googleAuth.ts](src/lib/ci/googleAuth.ts) attaches a bearer token when one happens to be
+available and otherwise sends the request unauthenticated.
+
+If GCS starts answering `401`/`403`, supply a credential with
+`roles/storage.objectViewer` on the bucket — a service account via `GOOGLE_ACCESS_TOKEN`, or a
+local `gcloud` login. A Google **API key will not work**: it identifies a project for quota but
+leaves the caller anonymous to IAM. Note that a token authenticates the caller without
+authorizing it, so an account lacking a binding still gets `403`.
+
+`prow.ci.openshift.org` has its own access controls, independent of anything above; a Google
+credential has no bearing on it. When it answers `403` with a login page, the job-history
+scrape in [prow.ts](src/lib/ci/prow.ts) cannot run.
 
 ## Running
 
