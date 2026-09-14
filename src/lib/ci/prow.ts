@@ -8,10 +8,10 @@
  * that must be compared as BigInt (values exceed Number.MAX_SAFE_INTEGER).
  */
 
+import { USER_AGENT } from "../constants";
 import type { Build, BuildId, ProwResult } from "./types";
 
 const PROW_BASE = "https://prow.ci.openshift.org";
-const USER_AGENT = "console-dashboard-squared/1.0";
 const TIMEOUT_MS = 30_000;
 const MAX_PAGES = 8;
 

@@ -12,6 +12,7 @@
  * z-stream (below dev version → X.Y.z) or a trunk (>= dev version → X.Y.0).
  */
 
+import { USER_AGENT } from "../constants";
 import type { Repository } from "./repository";
 import type { DevVersionResult } from "./types";
 
@@ -21,7 +22,7 @@ const TIMEOUT_MS = 15_000;
 function getGitHubHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     Accept: "application/vnd.github.v3+json",
-    "User-Agent": "console-dashboard-squared/1.0",
+    "User-Agent": USER_AGENT,
   };
   const token = process.env.GITHUB_TOKEN;
   if (token) headers.Authorization = `Bearer ${token}`;
