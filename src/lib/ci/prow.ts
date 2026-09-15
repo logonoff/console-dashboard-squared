@@ -67,9 +67,9 @@ function extractOlderBuildId(html: string, oldestId: BuildId): string | null {
 
 function prowToBuild(raw: ProwBuild, jobName: string): Build {
   const pull = raw.Refs?.pulls?.[0];
-  // SpyglassLink: "/view/gs/test-platform-results/pr-logs/pull/openshift_console/<pr>/<job>/<id>"
+  // SpyglassLink: "/view/gs/test-platform-results-public/pr-logs/pull/openshift_console/<pr>/<job>/<id>"
   const objectPrefix = raw.SpyglassLink.replace(
-    /^\/view\/gs\/test-platform-results\//,
+    /^\/view\/gs\/test-platform-results-public\//,
     "",
   ).replace(/\/?$/, "/");
   return {
@@ -103,7 +103,7 @@ export async function fetchBuildsInWindow(opts: {
   cutoffMs: number;
 }): Promise<{ builds: Build[]; pagesFetched: number; truncated: boolean }> {
   const { jobName, cutoffMs } = opts;
-  const baseUrl = `${PROW_BASE}/job-history/gs/test-platform-results/pr-logs/directory/${encodeURIComponent(jobName)}`;
+  const baseUrl = `${PROW_BASE}/job-history/gs/test-platform-results-public/pr-logs/directory/${encodeURIComponent(jobName)}`;
 
   const builds: Build[] = [];
   let pagesFetched = 0;

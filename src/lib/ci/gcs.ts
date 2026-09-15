@@ -11,7 +11,7 @@ import {
   invalidateGoogleAccessToken,
 } from "./googleAuth";
 
-const BUCKET = "test-platform-results";
+const BUCKET = "test-platform-results-public";
 const GCS_API = `https://storage.googleapis.com/storage/v1/b/${BUCKET}/o`;
 const GCS_MEDIA = `https://storage.googleapis.com/${BUCKET}`;
 

@@ -1,7 +1,7 @@
 /**
  * Google OAuth2 access tokens for GCS.
  *
- * Optional. `test-platform-results` is normally public, and callers treat a
+ * Optional. `test-platform-results-public` is normally public, and callers treat a
  * missing token as "send it anonymously".
  *
  * When the bucket does demand credentials it asks for

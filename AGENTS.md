@@ -165,7 +165,7 @@ Prow HTML and GCS object downloads send no CORS headers. Everything goes through
 
 ### Optional GCS authentication
 
-`test-platform-results` is normally readable anonymously, so no credentials are needed.
+`test-platform-results-public` is normally readable anonymously, so no credentials are needed.
 [googleAuth.ts](src/lib/ci/googleAuth.ts) attaches a bearer token when one happens to be
 available and otherwise sends the request unauthenticated.
 

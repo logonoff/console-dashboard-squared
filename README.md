@@ -48,7 +48,7 @@ NET=1 pnpm test   # + network-gated integration tests
 
 ### Optional GCS authentication
 
-The `test-platform-results` bucket is normally readable anonymously, so there is nothing to
+The `test-platform-results-public` bucket is normally readable anonymously, so there is nothing to
 configure. Requests are sent unauthenticated unless a token is available.
 
 If GCS returns `401` or `403`, authentication becomes necessary. Provide a credential holding
