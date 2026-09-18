@@ -19,7 +19,7 @@ const MAX_PAGES = 8;
 // Types matching the embedded JSON shape
 // ---------------------------------------------------------------------------
 
-interface ProwBuild {
+export interface ProwBuild {
   SpyglassLink: string;
   ID: string;
   Started: string;
@@ -65,11 +65,18 @@ function extractOlderBuildId(html: string, oldestId: BuildId): string | null {
   return smaller.length > 0 ? String(smaller[0]) : null;
 }
 
-function prowToBuild(raw: ProwBuild, jobName: string): Build {
+// SpyglassLink: "/view/gs/<bucket>/pr-logs/pull/openshift_console/<pr>/<job>/<id>"
+// The bucket segment is stripped generically (not pinned to the current
+// bucket name) because job-history entries for older builds can still carry
+// a bucket that has since been retired/renamed. Falling back to the current
+// bucket in gcs.ts naturally yields an empty listing for those builds, which
+// analyze.ts already reports as "no-artifact" rather than a hard error.
+const SPYGLASS_GCS_PREFIX_RE = /^\/view\/gs\/[^/]+\//;
+
+export function prowToBuild(raw: ProwBuild, jobName: string): Build {
   const pull = raw.Refs?.pulls?.[0];
-  // SpyglassLink: "/view/gs/test-platform-results-public/pr-logs/pull/openshift_console/<pr>/<job>/<id>"
   const objectPrefix = raw.SpyglassLink.replace(
-    /^\/view\/gs\/test-platform-results-public\//,
+    SPYGLASS_GCS_PREFIX_RE,
     "",
   ).replace(/\/?$/, "/");
   return {
