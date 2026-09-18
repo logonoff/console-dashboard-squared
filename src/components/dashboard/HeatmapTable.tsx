@@ -102,6 +102,13 @@ export function HeatmapTable({
         ? "Flake rate"
         : "Unhealthy rate";
 
+  const metricTooltip =
+    metric === "failureRate"
+      ? "Share of runs with at least one hard test failure (final outcome after retries), out of runs where the suite ran."
+      : metric === "flakeRate"
+        ? "Share of runs with no hard failure but at least one case that failed then passed on retry, out of runs where the suite ran."
+        : "(Failed + Flaked) / Runs — the default health signal. Hard-failure-only rates look nearly all-green on builds prow marked FAILURE due to flakes alone.";
+
   return (
     <OuterScrollContainer>
       <InnerScrollContainer>
@@ -111,29 +118,92 @@ export function HeatmapTable({
           borders={false}
           isStickyHeader
         >
-          <Thead>
+          <Thead noWrap>
             <Tr>
-              <Th sort={{ sortBy, onSort, columnIndex: 0 }} width={35}>
+              <Th
+                sort={{ sortBy, onSort, columnIndex: 0 }}
+                width={35}
+                info={{
+                  tooltip:
+                    "Playwright spec path, Go package, or Mocha/Cypress describe block.",
+                }}
+              >
                 Suite / spec
               </Th>
-              <Th width={10}>Branch</Th>
-              <Th sort={{ sortBy, onSort, columnIndex: 2 }} width={15}>
+              <Th
+                width={10}
+                info={{
+                  tooltip:
+                    "Release branches where this suite appeared during the selected window.",
+                }}
+              >
+                Branch
+              </Th>
+              <Th
+                sort={{ sortBy, onSort, columnIndex: 2 }}
+                width={15}
+                info={{ tooltip: metricTooltip }}
+              >
                 {metricLabel}
               </Th>
-              <Th width={10}>Status</Th>
-              <Th sort={{ sortBy, onSort, columnIndex: 4 }} width={10}>
+              <Th
+                width={10}
+                info={{
+                  tooltip:
+                    "Severity bucket derived from the rate in this row: Healthy (0%), Low (<=10%), Moderate (<=25%), High (<=50%), Critical (>50%).",
+                }}
+              >
+                Status
+              </Th>
+              <Th
+                sort={{ sortBy, onSort, columnIndex: 4 }}
+                width={10}
+                info={{
+                  tooltip:
+                    "Analyzed runs where the suite ran (>=1 non-skipped case). All-skipped appearances and PENDING/ABORTED/ERROR runs are excluded.",
+                }}
+              >
                 Runs
               </Th>
-              <Th sort={{ sortBy, onSort, columnIndex: 5 }} width={10}>
+              <Th
+                sort={{ sortBy, onSort, columnIndex: 5 }}
+                width={10}
+                info={{
+                  tooltip:
+                    "Runs, out of the count in Runs, with >=1 case whose final outcome was a hard failure.",
+                }}
+              >
                 Failed
               </Th>
-              <Th sort={{ sortBy, onSort, columnIndex: 6 }} width={10}>
+              <Th
+                sort={{ sortBy, onSort, columnIndex: 6 }}
+                width={10}
+                info={{
+                  tooltip:
+                    "Runs, out of the count in Runs, with no hard failure but >=1 case that failed on an earlier attempt and passed on retry.",
+                }}
+              >
                 Flaked
               </Th>
-              <Th sort={{ sortBy, onSort, columnIndex: 7 }} width={10}>
+              <Th
+                sort={{ sortBy, onSort, columnIndex: 7 }}
+                width={10}
+                info={{
+                  tooltip:
+                    "Distinct PRs where this suite was unhealthy (failed or flaked), out of distinct PRs where it ran at all. Low relative to the total suggests the failure tracks a specific PR rather than being a general flake.",
+                }}
+              >
                 PRs affected
               </Th>
-              <Th width={10}>Search</Th>
+              <Th
+                width={10}
+                info={{
+                  tooltip:
+                    "Opens a dptools search scoped to this suite's search term, job, and time window.",
+                }}
+              >
+                Search
+              </Th>
             </Tr>
           </Thead>
           <Tbody>
