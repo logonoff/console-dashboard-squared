@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { type ProwBuild, prowToBuild } from "./prow";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { fetchBuildsInWindow, type ProwBuild, prowToBuild } from "./prow";
 import { objectPrefixRE, REPOSITORIES } from "./repository";
 
 const TEST_REPO = REPOSITORIES["openshift/console"];
@@ -71,5 +71,63 @@ describe("prowToBuild — bucket rename edge case", () => {
     expect(build.spyglassUrl).toBe(
       `https://prow.ci.openshift.org/view/gs/origin-ci-test/${RELATIVE_PATH}`,
     );
+  });
+});
+
+describe("job-history pagination limits", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  function history() {
+    const pages = Array.from({ length: 13 }, (_, index) => {
+      const id = (BigInt(BUILD_ID) - BigInt(index)).toString();
+      const next = (BigInt(BUILD_ID) - BigInt(index + 1)).toString();
+      const raw = makeRaw(
+        `/view/gs/test-platform-results-public/${RELATIVE_PATH}`,
+        {
+          ID: id,
+          Started: new Date(Date.UTC(2026, 9, 13 - index)).toISOString(),
+        },
+      );
+      return {
+        id,
+        html: `var allBuilds = ${JSON.stringify([raw])};\n<a href="?buildId=${next}">Older</a>`,
+      };
+    });
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (url) => {
+      const id = new URL(String(url)).searchParams.get("buildId");
+      const page =
+        id === null ? pages[0] : pages.find((entry) => entry.id === id);
+      if (!page) throw new Error("Unexpected pagination cursor");
+      return new Response(page.html);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  it("keeps the default eight-page cap for dashboard calls", async () => {
+    const fetchMock = history();
+    const result = await fetchBuildsInWindow({
+      jobName: JOB_NAME,
+      cutoffMs: Date.UTC(2026, 9, 3),
+    });
+    expect(result.truncated).toBe(true);
+    expect(result.pagesFetched).toBe(8);
+    expect(fetchMock).toHaveBeenCalledTimes(8);
+  });
+
+  it("can continue beyond eight pages to cover the PNG's requested window", async () => {
+    const fetchMock = history();
+    const result = await fetchBuildsInWindow({
+      jobName: JOB_NAME,
+      cutoffMs: Date.UTC(2026, 9, 3),
+      maxPages: 32,
+    });
+    expect(result.truncated).toBe(false);
+    expect(result.pagesFetched).toBe(12);
+    expect(result.builds).toHaveLength(11);
+    expect(result.builds.at(-1)?.id).toBe(
+      (BigInt(BUILD_ID) - BigInt(10)).toString(),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(12);
   });
 });

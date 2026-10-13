@@ -10,10 +10,10 @@ Read-only dashboard for analyzing flaky and failing junit test suites across Ope
 1. Fetches release branches and prow jobs dynamically — no hardcoded lists. Retired jobs appear with their last-run date.
 2. Scrapes all prow runs over a configurable window (default 14 days).
 3. Discovers and parses junit XML artifacts.
-4. Renders a heatmap in two views: suite × run matrix and compact per-suite grid.
+4. Renders suite statistics as a table, suite × run matrix, or compact per-suite grid. For `openshift/console`, the **CRP timings** view appears only after timing data is found for the selected job. It charts cluster-dashboard loading measurements across runs and repeated page loads, including original and `retryN` attempts.
 5. Links each failing suite to `search.dptools.openshift.org` and generates a copy-pasteable markdown prompt for LLM-assisted OCPBUGS triage.
 
-**The app never calls an LLM.** All numbers are computed from junit XML.
+**The app never calls an LLM.** All numbers are computed from junit XML or recorded CRP timing JSON.
 
 ## Stack
 
@@ -34,6 +34,48 @@ pnpm format       # Biome format --write
 pnpm test         # vitest (offline, uses fixtures)
 NET=1 pnpm test   # + network-gated integration tests
 ```
+
+## CRP graph PNG API
+
+`GET /api/crp-timings/graph` returns `image/png` for `openshift/console`. It uses the same timing statistics and graph definitions as the dashboard. Images render on the server using ECharts SVG rendering and sharp, with no browser required.
+
+Export the mean-duration trend for a job:
+
+```sh
+curl --fail --get 'http://localhost:3000/api/crp-timings/graph' \
+  --data-urlencode 'job=pull-ci-openshift-console-main-e2e-gcp-console' \
+  --data-urlencode 'days=14' \
+  --data-urlencode 'hideWithoutTimings=1' \
+  --output crp-trend.png
+```
+
+Export repeated page loads for a specific build (defaults to the latest recorded retry):
+
+```sh
+curl --fail --get 'http://localhost:3000/api/crp-timings/graph' \
+  --data-urlencode 'job=pull-ci-openshift-console-main-e2e-gcp-console' \
+  --data-urlencode 'view=loads' \
+  --data-urlencode 'pr=17379' \
+  --data-urlencode 'buildId=2110003893407584256' \
+  --output crp-loads.png
+```
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `job` | Required | Full Console Prow job name, validated against the catalog |
+| `view` | `trend` | `trend` or `loads`; loads without a build selects the newest run with timings in the window |
+| `days` | `14` | Run window, 1–90 days; up to 32 history pages and the newest 512 runs |
+| `metric` | `sum` | Exact timing name, e.g. `LoadingBox:DashboardsPage` |
+| `hideWithoutTimings` | `0` | `1` hides runs missing the selected metric in the trend |
+| `pr`, `buildId` | — | Supply together for a specific build; requires `view=loads`; keep build IDs as strings |
+| `retry` | Latest available | Original attempt = `0`, retries = `1` and up; requires `view=loads` |
+| `width`, `height` | `1200`, `600` | PNG dimensions; width 640–2400, height 320–1400 |
+| `force` | `0` | `1` bypasses cached runs and timing artifacts |
+| `repo` | `openshift/console` | Only Console is supported |
+
+Trend timestamps use UTC. If the history page or run limit is reached, the API still returns a PNG, adds “History truncated” to its subtitle, and sets `X-CI-History-Truncated: true`. `X-CI-Runs-Analyzed` reports the number of runs checked. Complete exports set the truncation header to `false`.
+
+Invalid inputs return JSON with HTTP 400; missing timings, metrics, retries, or builds return 404; unfinished explicit builds return 409; upstream failures return 502. Timing fetch errors are reported rather than silently omitted from the graph.
 
 ## Environment variables
 

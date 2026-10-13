@@ -129,6 +129,31 @@ export interface RunResult {
   error?: string;
 }
 
+/** CRP-blame durations are recorded in milliseconds for each repeated page load. */
+export interface CrpTiming {
+  name: string;
+  duration: number;
+}
+
+export interface CrpTimingAttempt {
+  /** 0 = original attempt, 1+ = Playwright retry number. */
+  retry: number;
+  sourcePath: string;
+  loads: CrpTiming[][];
+}
+
+export interface CrpTimingResult {
+  buildId: BuildId;
+  status: RunStatus;
+  attempts: CrpTimingAttempt[];
+  error?: string;
+}
+
+export interface CrpTimingAnalysis {
+  builds: Build[];
+  results: CrpTimingResult[];
+}
+
 // ---------------------------------------------------------------------------
 // Heatmap cell
 // ---------------------------------------------------------------------------

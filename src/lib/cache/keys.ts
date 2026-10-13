@@ -15,8 +15,11 @@ export const keys = {
   jobLastRun: (jobName: string) => `joblastrun:v1:${jobName}`,
   runs: (jobName: string, days: number, hourBucket: number) =>
     `runs:v1:${jobName}:${days}:${hourBucket}`,
+  graphRuns: (jobName: string, days: number, hourBucket: number) =>
+    `graphruns:v1:${jobName}:${days}:${hourBucket}`,
   junitPaths: (buildId: string) => `junitpaths:v1:${buildId}`,
   runResult: (buildId: string) => `runresult:v1:${buildId}`,
+  crpTimings: (buildId: string) => `crptimings:v1:${buildId}`,
   devVersion: (repoSlug: string) => `devversion:v1:${repoSlug}`,
 };
 

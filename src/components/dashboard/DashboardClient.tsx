@@ -11,9 +11,13 @@ import {
   PageSection,
   Spinner,
 } from "@patternfly/react-core";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCatalog, useJobs } from "@/hooks/useCatalog";
+import { useCrpTimings } from "@/hooks/useCrpTimings";
 import { useRunAnalysis } from "@/hooks/useRunAnalysis";
+import { checkCrpTimingAvailability } from "@/lib/ci/crpTimingAvailability";
+import { hasCrpTimingData } from "@/lib/ci/crpTimings";
 import { downloadCsv, generateCsv } from "@/lib/ci/csv";
 import {
   aggregateJobPattern,
@@ -50,6 +54,20 @@ const EMPTY_DEV_VERSION: DevVersionResult = {
 
 const ALL_REPOS = Object.values(REPOSITORIES);
 const DEFAULT_REPO = REPOSITORIES["openshift/console"] ?? ALL_REPOS[0];
+
+const CrpTimingsView = dynamic(
+  () => import("./CrpTimingsView").then((module) => module.CrpTimingsView),
+  { ssr: false, loading: () => <Spinner aria-label="Loading timing charts" /> },
+);
+
+async function getBuilds(url: string, signal: AbortSignal): Promise<Build[]> {
+  const response = await fetch(url, { signal });
+  const data: { builds?: Build[]; error?: string } = await response.json();
+  if (!response.ok || !data.builds) {
+    throw new Error(data.error ?? `Runs: HTTP ${response.status}`);
+  }
+  return data.builds;
+}
 
 export function DashboardClient() {
   // Repo selection
@@ -116,6 +134,22 @@ export function DashboardClient() {
 
   // Analysis
   const { analysis, loading, error, progress, run, cancel } = useRunAnalysis();
+  const {
+    analysis: timingAnalysis,
+    loading: timingLoading,
+    error: timingError,
+    progress: timingProgress,
+    run: runTimings,
+    cancel: cancelTimings,
+    reset: resetTimings,
+  } = useCrpTimings();
+  const isTimings =
+    view === "timings" && selectedRepo.repo === "openshift/console";
+  const activeLoading = isTimings ? timingLoading : loading;
+  const activeProgress = isTimings ? timingProgress : progress;
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const activeError = fetchError ?? (isTimings ? timingError : error);
+  const prefetchRef = useRef<AbortController | null>(null);
   // Tracks the /api/runs prefetch so the spinner appears before run() is called.
   const [pendingFetch, setPendingFetch] = useState(false);
 
@@ -123,9 +157,26 @@ export function DashboardClient() {
     ? (jobs.find((j) => j.name === selectedJobName) ?? null)
     : null;
 
+  const availabilityKey = `${selectedRepo.repo}:${selectedBranch}:${selectedJobName}`;
+  const [crpAvailability, setCrpAvailability] = useState({
+    key: "",
+    available: false,
+  });
+  const hasCrpTimings =
+    selectedRepo.repo === "openshift/console" &&
+    !!selectedJob &&
+    crpAvailability.key === availabilityKey &&
+    crpAvailability.available;
+
   const doRun = useCallback(
     async (force = false) => {
       if (!selectedJob) return;
+      prefetchRef.current?.abort();
+      const controller = new AbortController();
+      prefetchRef.current = controller;
+      resetTimings();
+      cancel();
+      setFetchError(null);
       setPendingFetch(true);
       try {
         let combinedBuilds: Build[];
@@ -138,11 +189,10 @@ export function DashboardClient() {
           );
           const results = await Promise.all(
             branchJobs.map((bj) =>
-              fetch(
+              getBuilds(
                 `/api/runs?job=${encodeURIComponent(bj.name)}&days=${windowDays}&repo=${encodeURIComponent(selectedRepo.repo)}${force ? "&force=1" : ""}`,
-              )
-                .then((r) => r.json())
-                .then((d: { builds: Build[] }) => d.builds),
+                controller.signal,
+              ),
             ),
           );
           combinedBuilds = results.flat();
@@ -154,29 +204,84 @@ export function DashboardClient() {
             lastRunIso: null,
           };
         } else {
-          const data: { builds: Build[]; windowDays: number } = await fetch(
+          combinedBuilds = await getBuilds(
             `/api/runs?job=${encodeURIComponent(selectedJob.name)}&days=${windowDays}&repo=${encodeURIComponent(selectedRepo.repo)}${force ? "&force=1" : ""}`,
-          ).then((r) => r.json());
-          combinedBuilds = data.builds;
+            controller.signal,
+          );
           effectiveJob = selectedJob;
         }
 
-        setPendingFetch(false);
-        run(effectiveJob, combinedBuilds, windowDays, selectedRepo, force);
+        if (controller.signal.aborted) return;
+        if (isTimings) {
+          const timings = await runTimings(combinedBuilds, force);
+          if (!controller.signal.aborted && timings) {
+            const available = hasCrpTimingData(timings.results);
+            setCrpAvailability({ key: availabilityKey, available });
+            if (!available) setView("table");
+          }
+        } else {
+          run(effectiveJob, combinedBuilds, windowDays, selectedRepo, force);
+          if (selectedRepo.repo === "openshift/console") {
+            // This probe runs alongside junit analysis; it reuses the timing cache.
+            checkCrpTimingAvailability(
+              combinedBuilds,
+              controller.signal,
+              force,
+            ).then((available) => {
+              if (!controller.signal.aborted)
+                setCrpAvailability({ key: availabilityKey, available });
+            });
+          }
+        }
       } catch (err) {
-        setPendingFetch(false);
-        console.error("Failed to fetch runs:", err);
+        if (!controller.signal.aborted)
+          setFetchError(err instanceof Error ? err.message : String(err));
+      } finally {
+        if (prefetchRef.current === controller) setPendingFetch(false);
       }
     },
-    [selectedJob, selectedBranch, branches, windowDays, selectedRepo, run],
+    [
+      selectedJob,
+      selectedBranch,
+      branches,
+      windowDays,
+      selectedRepo,
+      run,
+      isTimings,
+      runTimings,
+      resetTimings,
+      cancel,
+      availabilityKey,
+    ],
   );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: windowDays is captured by doRun
   useEffect(() => {
     if (selectedJob) doRun(false);
-  }, [selectedJob, windowDays, doRun]);
+    return () => {
+      prefetchRef.current?.abort();
+      cancelTimings();
+      cancel();
+    };
+  }, [selectedJob, windowDays, doRun, cancelTimings, cancel]);
+
+  const clearSelection = (clearAvailability = true) => {
+    prefetchRef.current?.abort();
+    setPendingFetch(false);
+    setFetchError(null);
+    resetTimings();
+    cancel();
+    setSelectedSuite(null);
+    if (clearAvailability) {
+      setCrpAvailability({ key: "", available: false });
+      if (view === "timings") setView("table");
+    }
+  };
 
   const handleRepoChange = (repo: Repository) => {
+    clearSelection();
+    if (repo.repo !== "openshift/console" && view === "timings")
+      setView("table");
     setSelectedRepo(repo);
     setSelectedBranch(null);
     setSelectedJobName(null);
@@ -184,14 +289,22 @@ export function DashboardClient() {
   };
 
   const handleBranchChange = (branch: string) => {
+    clearSelection();
     setSelectedBranch(branch);
     setSelectedJobName(null);
     setSelectedSuite(null);
   };
 
   const handleJobChange = (jobName: string) => {
+    clearSelection();
     setSelectedJobName(jobName);
     setSelectedSuite(null);
+  };
+
+  const handleViewChange = (next: ViewKey) => {
+    if (next === "timings" && !hasCrpTimings) return;
+    if ((next === "timings") !== isTimings) clearSelection(false);
+    setView(next);
   };
 
   if (catalogLoading) {
@@ -219,7 +332,8 @@ export function DashboardClient() {
           windowDays={windowDays}
           onWindowChange={setWindowDays}
           view={view}
-          onViewChange={setView}
+          hasCrpTimings={hasCrpTimings}
+          onViewChange={handleViewChange}
           metric={metric}
           onMetricChange={setMetric}
           suiteFilter={suiteFilter}
@@ -228,7 +342,7 @@ export function DashboardClient() {
           onShowLowSampleChange={setShowLowSample}
           showCiOperator={showCiOperator}
           onShowCiOperatorChange={setShowCiOperator}
-          loading={pendingFetch || loading}
+          loading={pendingFetch || activeLoading}
           onRefresh={() => doRun(false)}
           onForceRefresh={() => doRun(true)}
           hasAnalysis={!!analysis}
@@ -288,15 +402,15 @@ export function DashboardClient() {
              * independently scrollable, and never moves with this content.
              */}
             <DrawerContentBody style={{ overflowY: "auto", height: "100%" }}>
-              {loading && (
+              {activeLoading && (
                 <LoadProgress
-                  done={progress.done}
-                  total={progress.total}
-                  onCancel={cancel}
+                  done={activeProgress.done}
+                  total={activeProgress.total}
+                  onCancel={isTimings ? cancelTimings : cancel}
                 />
               )}
 
-              {error && (
+              {activeError && (
                 <Alert
                   variant="danger"
                   isInline
@@ -307,21 +421,28 @@ export function DashboardClient() {
                     </AlertActionLink>
                   }
                 >
-                  {error}
+                  {activeError}
                 </Alert>
               )}
 
-              {!analysis && !loading && !error && (
-                <EmptyState>
-                  <EmptyStateBody>
-                    {selectedJob
-                      ? "Select a branch and job above to start analyzing prow runs."
-                      : "Select a branch and job above to start."}
-                  </EmptyStateBody>
-                </EmptyState>
+              {!(isTimings ? timingAnalysis : analysis) &&
+                !activeLoading &&
+                !pendingFetch &&
+                !activeError && (
+                  <EmptyState>
+                    <EmptyStateBody>
+                      {selectedJob
+                        ? "Select a branch and job above to start analyzing prow runs."
+                        : "Select a branch and job above to start."}
+                    </EmptyStateBody>
+                  </EmptyState>
+                )}
+
+              {isTimings && timingAnalysis && (
+                <CrpTimingsView analysis={timingAnalysis} />
               )}
 
-              {analysis && (
+              {!isTimings && analysis && (
                 <>
                   <SummaryStrip analysis={analysis} />
 

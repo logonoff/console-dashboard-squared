@@ -11,15 +11,18 @@
   },
   "dependencies": {
     "@patternfly/patternfly": "6.6.1",
+    "@patternfly/react-charts": "8.6.1",
     "@patternfly/react-component-groups": "6.7.0",
     "@patternfly/react-core": "6.6.1",
     "@patternfly/react-icons": "6.6.1",
     "@patternfly/react-styles": "6.6.1",
     "@patternfly/react-table": "6.6.1",
+    "echarts": "^6.1.0",
     "fast-xml-parser": "^5.11.1",
     "next": "16.3.4",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.12",

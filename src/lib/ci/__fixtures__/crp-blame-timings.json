@@ -1,0 +1,152 @@
+[
+  [
+    {
+      "name": "LoadingBox:Root suspense",
+      "duration": 1231.6000000000931
+    },
+    {
+      "name": "LoadingBox:Perspective, Namespace, Reducers, Providers, Language (auth-pending)",
+      "duration": 41.6999999997206
+    },
+    {
+      "name": "LoadingBox:Perspective, Namespace, Reducers, Providers, Language (authenticated)",
+      "duration": 41.799999999813735
+    },
+    {
+      "name": "LoadingBox:Perspective, Namespace, Reducers, Language (auth-pending)",
+      "duration": 42.1999999997206
+    },
+    {
+      "name": "LoadingBox:Perspective, Namespace, Reducers, Language (authenticated)",
+      "duration": 42.299999999813735
+    },
+    {
+      "name": "LoadingBox:Perspective, Namespace, Language (auth-pending)",
+      "duration": 28.700000000186265
+    },
+    {
+      "name": "LoadingBox:Perspective, Namespace, Language (authenticated)",
+      "duration": 28.800000000279397
+    },
+    {
+      "name": "LoadingBox:Namespace (auth-pending)",
+      "duration": 199.8000000002794
+    },
+    {
+      "name": "LoadingBox:Namespace (authenticated)",
+      "duration": 200
+    },
+    {
+      "name": "LoadingBox:DashboardsPage",
+      "duration": 158.29999999981374
+    },
+    {
+      "name": "LoadingBox:DashboardsPage",
+      "duration": 181.10000000009313
+    },
+    {
+      "name": "sum",
+      "duration": 2196.2999999998137
+    }
+  ],
+  [
+    {
+      "name": "LoadingBox:Root suspense",
+      "duration": 1316.7999999998137
+    },
+    {
+      "name": "LoadingBox:Perspective, Namespace, Reducers, Providers, Language (auth-pending)",
+      "duration": 37.60000000009313
+    },
+    {
+      "name": "LoadingBox:Perspective, Namespace, Reducers, Providers, Language (authenticated)",
+      "duration": 37.60000000009313
+    },
+    {
+      "name": "LoadingBox:Perspective, Namespace, Reducers, Language (auth-pending)",
+      "duration": 225.59999999962747
+    },
+    {
+      "name": "LoadingBox:Perspective, Namespace, Reducers, Language (authenticated)",
+      "duration": 225.6999999997206
+    },
+    {
+      "name": "LoadingBox:Perspective, Namespace, Language (auth-pending)",
+      "duration": 25.600000000093132
+    },
+    {
+      "name": "LoadingBox:Perspective, Namespace, Language (authenticated)",
+      "duration": 25.700000000186265
+    },
+    {
+      "name": "LoadingBox:Namespace (auth-pending)",
+      "duration": 177.39999999990687
+    },
+    {
+      "name": "LoadingBox:Namespace (authenticated)",
+      "duration": 177.59999999962747
+    },
+    {
+      "name": "LoadingBox:DashboardsPage",
+      "duration": 151.10000000009313
+    },
+    {
+      "name": "LoadingBox:DashboardsPage",
+      "duration": 169.39999999990687
+    },
+    {
+      "name": "sum",
+      "duration": 2570.099999999162
+    }
+  ],
+  [
+    {
+      "name": "LoadingBox:Root suspense",
+      "duration": 1303.7000000001863
+    },
+    {
+      "name": "LoadingBox:Perspective, Namespace, Reducers, Providers, Language (auth-pending)",
+      "duration": 41.6999999997206
+    },
+    {
+      "name": "LoadingBox:Perspective, Namespace, Reducers, Providers, Language (authenticated)",
+      "duration": 41.6999999997206
+    },
+    {
+      "name": "LoadingBox:Perspective, Namespace, Reducers, Language (auth-pending)",
+      "duration": 50.700000000186265
+    },
+    {
+      "name": "LoadingBox:Perspective, Namespace, Reducers, Language (authenticated)",
+      "duration": 50.60000000009313
+    },
+    {
+      "name": "LoadingBox:Perspective, Namespace, Language (auth-pending)",
+      "duration": 16
+    },
+    {
+      "name": "LoadingBox:Perspective, Namespace, Language (authenticated)",
+      "duration": 16
+    },
+    {
+      "name": "LoadingBox:Namespace (auth-pending)",
+      "duration": 160.60000000009313
+    },
+    {
+      "name": "LoadingBox:Namespace (authenticated)",
+      "duration": 160.8000000002794
+    },
+    {
+      "name": "LoadingBox:DashboardsPage",
+      "duration": 162.5
+    },
+    {
+      "name": "LoadingBox:DashboardsPage",
+      "duration": 151.60000000009313
+    },
+    {
+      "name": "sum",
+      "duration": 2155.9000000003725
+    }
+  ]
+]

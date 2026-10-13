@@ -22,13 +22,13 @@ Read-only dashboard for analyzing flaky/failing junit test suites across OpenShi
 4. Renders a heatmap in two views: suite × run matrix and compact per-suite grid.
 5. Links each failing suite to `search.dptools.openshift.org` and generates a copy-pasteable markdown prompt instructing an LLM to triage / file OCPBUGS.
 
-**The app never calls an LLM.** All numbers are deterministic from junit XML.
+**The app never calls an LLM.** All numbers are deterministic from junit XML or recorded CRP timing JSON.
 
 ## Stack
 
 - **Next.js 16.3.4**, App Router, Turbopack default, `reactCompiler: true`
 - **React 19**, TypeScript ^7, strict mode
-- **PatternFly 6.6.1** — `@patternfly/react-core`, `@patternfly/react-icons`, `@patternfly/patternfly` (CSS), `@patternfly/react-styles`. No `@patternfly/react-charts` (removed — peers missing).
+- **PatternFly 6.6.1** — `@patternfly/react-core`, `@patternfly/react-icons`, `@patternfly/patternfly` (CSS), `@patternfly/react-styles`. `@patternfly/react-charts` 8.6.1 uses its ECharts entry point with the `echarts` peer installed; timing charts load on demand.
 - **`fast-xml-parser` v5** — junit parsing, zero runtime deps, Vercel-safe
 - **vitest v5** — unit tests (`pnpm test`; `NET=1 pnpm test` enables network-gated tests)
 - **Biome 2.5.12** — lint/format (`pnpm lint` / `pnpm format`). No ESLint.
@@ -56,6 +56,8 @@ src/
       jobs/route.ts      GET ?branch= → { jobs: JobRef[] }
       runs/route.ts      GET ?job=&days= → { builds: Build[] }
       analyze/route.ts   POST { job, buildIds[≤8], force? } → { results: RunResult[] }
+      crp-timings/route.ts POST Console builds[≤8] → retry-aware CRP timing results
+      crp-timings/graph/route.ts GET Console timing graph → image/png
       dev-version/route.ts  GET → DevVersionResult
   lib/
     ci/
@@ -67,6 +69,11 @@ src/
       artifacts.ts       JUNIT_RE + discoverJunitPaths (full recursive listing)
       junit.ts           XML → SuiteResult[]; retry dedup; multi-file merge
       analyze.ts         one Build → RunResult
+      crp.ts             Console-only CRP artifact discovery under a fixed test prefix
+      crpTimings.ts      CRP timing parsing and per-load statistics (milliseconds)
+      crpCharts.ts       Shared chart data/options for dashboard and PNG export
+      crpPng.ts          ECharts SVG server rendering + sharp PNG conversion
+      crpService.ts      Shared timing fetch/cache policy for JSON and PNG routes
       aggregate.ts       RunResult[] → SuiteStat[] + matrix cells + denominators
       links.ts           dptools / spyglass / JQL URL builders
       concurrency.ts     Bounded async worker pool
@@ -91,12 +98,14 @@ src/
       HeatmapGrid.tsx       Compact per-suite grid
       HeatmapCell.tsx       Shared cell primitive
       HeatmapLegend.tsx     Bucket legend
+      CrpTimingsView.tsx    Console-only trend and repeated-load charts, attempt selector
       SuiteDetailPanel.tsx  Drawer: stats, runs, top failures, OCPBUGS tab
       BugPromptPanel.tsx    ClipboardCopy of generated markdown
       heatmap.module.css    Grid layout + PF semantic token colors
   hooks/
     useCatalog.ts
     useRunAnalysis.ts    Client fan-out, progress, abort, force-refresh
+    useCrpTimings.ts     Timing-only fan-out, abort, force-refresh; no junit scan
 ```
 
 ## Critical design decisions

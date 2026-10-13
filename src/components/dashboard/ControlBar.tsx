@@ -23,7 +23,7 @@ import type { Repository } from "@/lib/ci/repository";
 import type { BranchEntry, JobRef } from "@/lib/ci/types";
 
 export type MetricKey = "unhealthyRate" | "failureRate" | "flakeRate";
-export type ViewKey = "matrix" | "grid" | "table";
+export type ViewKey = "matrix" | "grid" | "table" | "timings";
 export { AGGREGATE_BRANCH };
 
 interface Props {
@@ -39,6 +39,7 @@ interface Props {
   windowDays: number;
   onWindowChange: (days: number) => void;
   view: ViewKey;
+  hasCrpTimings: boolean;
   onViewChange: (v: ViewKey) => void;
   metric: MetricKey;
   onMetricChange: (m: MetricKey) => void;
@@ -259,6 +260,7 @@ export function ControlBar({
   windowDays,
   onWindowChange,
   view,
+  hasCrpTimings,
   onViewChange,
   metric,
   onMetricChange,
@@ -309,7 +311,7 @@ export function ControlBar({
         <ToolbarGroup>
           <ToolbarItem>
             <Tooltip
-              content="Table: sortable list · Matrix: suite × run cells · Grid: compact colour squares"
+              content="Table: sortable list · Matrix: suite × run cells · Grid: compact colour squares · CRP timings: repeated dashboard load durations"
               position="bottom"
             >
               <ToggleGroup aria-label="View">
@@ -331,75 +333,87 @@ export function ControlBar({
                   isSelected={view === "grid"}
                   onChange={() => onViewChange("grid")}
                 />
+                {selectedRepo.repo === "openshift/console" && hasCrpTimings && (
+                  <ToggleGroupItem
+                    text="CRP timings"
+                    buttonId="view-timings"
+                    isSelected={view === "timings"}
+                    onChange={() => onViewChange("timings")}
+                  />
+                )}
               </ToggleGroup>
             </Tooltip>
           </ToolbarItem>
-          <ToolbarItem>
-            <Tooltip
-              content="Unhealthy = hard failures + flakes · Failures = final outcome fail · Flakes = fail then pass on retry"
-              position="bottom"
-            >
-              <ToggleGroup aria-label="Metric">
-                <ToggleGroupItem
-                  text="Unhealthy"
-                  buttonId="m-unhealthy"
-                  isSelected={metric === "unhealthyRate"}
-                  onChange={() => onMetricChange("unhealthyRate")}
-                />
-                <ToggleGroupItem
-                  text="Failures"
-                  buttonId="m-fail"
-                  isSelected={metric === "failureRate"}
-                  onChange={() => onMetricChange("failureRate")}
-                />
-                <ToggleGroupItem
-                  text="Flakes"
-                  buttonId="m-flake"
-                  isSelected={metric === "flakeRate"}
-                  onChange={() => onMetricChange("flakeRate")}
-                />
-              </ToggleGroup>
-            </Tooltip>
-          </ToolbarItem>
+          {view !== "timings" && (
+            <ToolbarItem>
+              <Tooltip
+                content="Unhealthy = hard failures + flakes · Failures = final outcome fail · Flakes = fail then pass on retry"
+                position="bottom"
+              >
+                <ToggleGroup aria-label="Metric">
+                  <ToggleGroupItem
+                    text="Unhealthy"
+                    buttonId="m-unhealthy"
+                    isSelected={metric === "unhealthyRate"}
+                    onChange={() => onMetricChange("unhealthyRate")}
+                  />
+                  <ToggleGroupItem
+                    text="Failures"
+                    buttonId="m-fail"
+                    isSelected={metric === "failureRate"}
+                    onChange={() => onMetricChange("failureRate")}
+                  />
+                  <ToggleGroupItem
+                    text="Flakes"
+                    buttonId="m-flake"
+                    isSelected={metric === "flakeRate"}
+                    onChange={() => onMetricChange("flakeRate")}
+                  />
+                </ToggleGroup>
+              </Tooltip>
+            </ToolbarItem>
+          )}
         </ToolbarGroup>
 
-        <ToolbarGroup>
-          <ToolbarItem>
-            <SearchInput
-              placeholder="Filter suites…"
-              value={suiteFilter}
-              onChange={(_e, v) => onSuiteFilterChange(v)}
-              onClear={() => onSuiteFilterChange("")}
-              style={{ minWidth: 180 }}
-            />
-          </ToolbarItem>
-          <ToolbarItem>
-            <Tooltip
-              content="Show suites hidden by default: fewer than 3 runs, failures from only one PR, or no failures at all (healthy suites)"
-              position="bottom"
-            >
-              <Switch
-                label="Low-sample & healthy suites"
-                isChecked={showLowSample}
-                onChange={(_e, checked) => onShowLowSampleChange(checked)}
-                aria-label="Show low sample suites"
+        {view !== "timings" && (
+          <ToolbarGroup>
+            <ToolbarItem>
+              <SearchInput
+                placeholder="Filter suites…"
+                value={suiteFilter}
+                onChange={(_e, v) => onSuiteFilterChange(v)}
+                onClear={() => onSuiteFilterChange("")}
+                style={{ minWidth: 180 }}
               />
-            </Tooltip>
-          </ToolbarItem>
-          <ToolbarItem>
-            <Tooltip
-              content="Show ci-operator step graph results (e.g. clone, build steps) — these are infrastructure steps, not test suites"
-              position="bottom"
-            >
-              <Switch
-                label="CI step results"
-                isChecked={showCiOperator}
-                onChange={(_e, checked) => onShowCiOperatorChange(checked)}
-                aria-label="Show CI operator step results"
-              />
-            </Tooltip>
-          </ToolbarItem>
-        </ToolbarGroup>
+            </ToolbarItem>
+            <ToolbarItem>
+              <Tooltip
+                content="Show suites hidden by default: fewer than 3 runs, failures from only one PR, or no failures at all (healthy suites)"
+                position="bottom"
+              >
+                <Switch
+                  label="Low-sample & healthy suites"
+                  isChecked={showLowSample}
+                  onChange={(_e, checked) => onShowLowSampleChange(checked)}
+                  aria-label="Show low sample suites"
+                />
+              </Tooltip>
+            </ToolbarItem>
+            <ToolbarItem>
+              <Tooltip
+                content="Show ci-operator step graph results (e.g. clone, build steps) — these are infrastructure steps, not test suites"
+                position="bottom"
+              >
+                <Switch
+                  label="CI step results"
+                  isChecked={showCiOperator}
+                  onChange={(_e, checked) => onShowCiOperatorChange(checked)}
+                  aria-label="Show CI operator step results"
+                />
+              </Tooltip>
+            </ToolbarItem>
+          </ToolbarGroup>
+        )}
 
         <ToolbarGroup align={{ default: "alignEnd" }}>
           <ToolbarItem>
@@ -410,7 +424,7 @@ export function ControlBar({
               <Button
                 variant="secondary"
                 onClick={onExportCsv}
-                isDisabled={!hasAnalysis || loading}
+                isDisabled={view === "timings" || !hasAnalysis || loading}
               >
                 Export CSV
               </Button>
@@ -424,7 +438,7 @@ export function ControlBar({
               <Button
                 variant="secondary"
                 onClick={onBulkPrompt}
-                isDisabled={!hasAnalysis || loading}
+                isDisabled={view === "timings" || !hasAnalysis || loading}
               >
                 Bulk triage prompt
               </Button>
@@ -432,7 +446,7 @@ export function ControlBar({
           </ToolbarItem>
           <ToolbarItem>
             <Tooltip
-              content="Re-fetch runs and re-analyze from prow (run cache is kept)"
+              content="Re-fetch runs and re-analyze from prow (artifact cache is kept)"
               position="bottom"
             >
               <Button

@@ -103,13 +103,14 @@ export function prowToBuild(raw: ProwBuild, jobName: string): Build {
  * Fetch all builds for a job within the given time window (inclusive).
  *
  * Iterates prow job-history pages, stopping when the oldest build on a page
- * predates cutoffMs, no older-page link is found, or MAX_PAGES is reached.
+ * predates cutoffMs, no older-page link is found, or the page limit is reached.
  */
 export async function fetchBuildsInWindow(opts: {
   jobName: string;
   cutoffMs: number;
+  maxPages?: number;
 }): Promise<{ builds: Build[]; pagesFetched: number; truncated: boolean }> {
-  const { jobName, cutoffMs } = opts;
+  const { jobName, cutoffMs, maxPages = MAX_PAGES } = opts;
   const baseUrl = `${PROW_BASE}/job-history/gs/test-platform-results-public/pr-logs/directory/${encodeURIComponent(jobName)}`;
 
   const builds: Build[] = [];
@@ -117,7 +118,7 @@ export async function fetchBuildsInWindow(opts: {
   let nextBuildId: string | null = null;
   let truncated = false;
 
-  for (let page = 0; page < MAX_PAGES; page++) {
+  for (let page = 0; page < maxPages; page++) {
     const url = nextBuildId ? `${baseUrl}?buildId=${nextBuildId}` : baseUrl;
 
     const res = await fetch(url, {
@@ -153,7 +154,7 @@ export async function fetchBuildsInWindow(opts: {
 
     nextBuildId = extractOlderBuildId(html, oldestId);
     if (!nextBuildId) break;
-    if (page === MAX_PAGES - 1) truncated = true;
+    if (page === maxPages - 1) truncated = true;
   }
 
   return { builds, pagesFetched, truncated };
